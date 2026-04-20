@@ -41,18 +41,23 @@ const QUICK_VIBES = [
 export default function AuvoraApp() {
   const supabase = createClient();
 
-  const [vibe,       setVibe]       = useState('');
-  const [phase,      setPhase]      = useState<Phase>('idle');
-  const [result,     setResult]     = useState<AuraResult | null>(null);
-  const [errorMsg,   setErrorMsg]   = useState('');
-  const [copied,     setCopied]     = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
+  const [vibe,            setVibe]            = useState('');
+  const [phase,           setPhase]           = useState<Phase>('idle');
+  const [result,          setResult]          = useState<AuraResult | null>(null);
+  const [errorMsg,        setErrorMsg]        = useState('');
+  const [copied,          setCopied]          = useState(false);
+  const [savedCount,      setSavedCount]      = useState(0);
+  // Increments on every successful generation — triggers archive auto-open
+  // independently of whether the Supabase save succeeded.
+  const [generationCount, setGenerationCount] = useState(0);
 
   // ── Silent anonymous auth on first visit ──────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        supabase.auth.signInAnonymously().catch(() => {});
+        supabase.auth.signInAnonymously().catch((err) => {
+          console.error('[AUVORA] signInAnonymously failed:', err);
+        });
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -61,16 +66,23 @@ export default function AuvoraApp() {
   async function silentSave(vibeInput: string, aura: AuraResult) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error('[AUVORA] silentSave: no authenticated user — is Anonymous sign-in enabled in Supabase?');
+        return;
+      }
       const { error } = await supabase.from('aura_entries').insert({
         user_id:     user.id,
         vibe_input:  vibeInput,
         output_json: aura,
         is_saved:    true,
       });
-      if (!error) setSavedCount((c) => c + 1);
-    } catch {
-      // non-blocking — never surface to user
+      if (error) {
+        console.error('[AUVORA] aura_entries insert failed:', error);
+      } else {
+        setSavedCount((c) => c + 1);
+      }
+    } catch (err) {
+      console.error('[AUVORA] silentSave threw:', err);
     }
   }
 
@@ -101,6 +113,7 @@ export default function AuvoraApp() {
 
       setResult(data.aura);
       setPhase('result');
+      setGenerationCount((c) => c + 1); // triggers archive auto-open
 
       // Fire-and-forget — never blocks or shows errors
       void silentSave(trimmed, data.aura);
@@ -404,7 +417,7 @@ export default function AuvoraApp() {
       )}
 
       {/* ── Archive ── */}
-      <AuraArchive refreshKey={savedCount} />
+      <AuraArchive refreshKey={savedCount} generationCount={generationCount} />
 
       {/* ── Footer ── */}
       <footer

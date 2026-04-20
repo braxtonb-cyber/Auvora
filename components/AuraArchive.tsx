@@ -26,7 +26,8 @@ interface AuraEntry {
 }
 
 interface AuraArchiveProps {
-  refreshKey?: number;
+  refreshKey?:      number;
+  generationCount?: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ function EntryCard({ entry, onDelete }: EntryCardProps) {
 
 // ── Archive ───────────────────────────────────────────────────────────────────
 
-export default function AuraArchive({ refreshKey = 0 }: AuraArchiveProps) {
+export default function AuraArchive({ refreshKey = 0, generationCount = 0 }: AuraArchiveProps) {
   const supabase   = createClient();
   const [isOpen,   setIsOpen]   = useState(false);
   const [entries,  setEntries]  = useState<AuraEntry[]>([]);
@@ -235,21 +236,36 @@ export default function AuraArchive({ refreshKey = 0 }: AuraArchiveProps) {
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('aura_entries')
         .select('id, created_at, vibe_input, output_json, is_saved')
         .order('created_at', { ascending: false });
+      if (error) console.error('[AUVORA] archive fetch failed:', error);
       setEntries((data ?? []) as AuraEntry[]);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[AUVORA] archive fetch threw:', err);
     } finally {
       setLoading(false);
     }
   }, []);                           // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Preload entry count on mount (populates badge even while collapsed)
+  useEffect(() => {
+    fetchEntries();
+  }, []);                           // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-open and re-fetch when a new generation completes
+  useEffect(() => {
+    if (generationCount > 0) {
+      setIsOpen(true);
+      fetchEntries();
+    }
+  }, [generationCount]);            // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-fetch when a save confirms (refreshKey increments)
   useEffect(() => {
     if (isOpen) fetchEntries();
-  }, [isOpen, refreshKey]);          // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshKey]);                 // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete(id: string) {
     try {
