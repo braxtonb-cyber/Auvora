@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Cormorant_Garamond, DM_Mono } from 'next/font/google';
 import { createClient } from '@/lib/supabase/client';
 import AuraShell from '@/components/AuraShell';
 import StillPointInput from '@/components/StillPointInput';
@@ -9,6 +10,26 @@ import AuraOrb from '@/components/AuraOrb';
 import AuraCard from '@/components/AuraCard';
 import PaletteSwatchRow from '@/components/PaletteSwatchRow';
 import AuraArchive from '@/components/AuraArchive';
+import SplashScreen from '@/components/SplashScreen';
+import OnboardingFlow, { AuvoraProfile } from '@/components/OnboardingFlow';
+import BottomNav, { AuvoraTab } from '@/components/BottomNav';
+import AuraAssistant from '@/components/AuraAssistant';
+import { StyleTab, ScentTab, SoundTab, ProfileTab } from '@/components/tabs/TabScaffolds';
+
+// ── New fonts (Cormorant + DM Mono) used by splash / onboarding / nav ─────────
+
+const cormorant = Cormorant_Garamond({
+  subsets:  ['latin'],
+  weight:   ['300', '400', '500'],
+  style:    ['normal', 'italic'],
+  variable: '--font-cormorant',
+});
+
+const mono = DM_Mono({
+  subsets:  ['latin'],
+  weight:   ['300', '400'],
+  variable: '--font-mono',
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,15 +62,33 @@ const QUICK_VIBES = [
 export default function AuvoraApp() {
   const supabase = createClient();
 
+  // ── App layer state ────────────────────────────────────────────────────────
+  const [splashDone,     setSplashDone]     = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [profile,        setProfile]        = useState<AuvoraProfile | null>(null);
+  const [activeTab,      setActiveTab]      = useState<AuvoraTab>('aura');
+
+  // ── Generator state (unchanged) ────────────────────────────────────────────
   const [vibe,            setVibe]            = useState('');
   const [phase,           setPhase]           = useState<Phase>('idle');
   const [result,          setResult]          = useState<AuraResult | null>(null);
   const [errorMsg,        setErrorMsg]        = useState('');
   const [copied,          setCopied]          = useState(false);
   const [savedCount,      setSavedCount]      = useState(0);
-  // Increments on every successful generation — triggers archive auto-open
-  // independently of whether the Supabase save succeeded.
   const [generationCount, setGenerationCount] = useState(0);
+
+  // ── Init: splash + onboarding gates ───────────────────────────────────────
+  useEffect(() => {
+    const splashSeen = sessionStorage.getItem('auvoraSplashSeen');
+    if (splashSeen) setSplashDone(true);
+
+    const savedProfile = localStorage.getItem('auvoraProfile');
+    const onboarded    = localStorage.getItem('auvoraOnboarded');
+    if (onboarded && savedProfile) {
+      try { setProfile(JSON.parse(savedProfile)); } catch { /* ignore */ }
+      setOnboardingDone(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Silent anonymous auth on first visit ──────────────────────────────────
   useEffect(() => {
@@ -61,6 +100,16 @@ export default function AuvoraApp() {
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleSplashComplete() {
+    sessionStorage.setItem('auvoraSplashSeen', '1');
+    setSplashDone(true);
+  }
+
+  function handleOnboardingComplete(p: AuvoraProfile) {
+    setProfile(p);
+    setOnboardingDone(true);
+  }
 
   // ── Silent save after generation ──────────────────────────────────────────
   async function silentSave(vibeInput: string, aura: AuraResult) {
@@ -86,36 +135,43 @@ export default function AuvoraApp() {
     }
   }
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handleQuickVibe() {
     const pick = QUICK_VIBES[Math.floor(Math.random() * QUICK_VIBES.length)];
     setVibe(pick);
   }
 
-  async function handleGenerate() {
-    const trimmed = vibe.trim();
+  async function handleGenerate(vibeOverride?: string) {
+    const baseVibe = vibeOverride ?? vibe;
+    const trimmed  = baseVibe.trim();
     if (!trimmed || phase === 'loading') return;
+
+    if (vibeOverride) setVibe(vibeOverride);
 
     setPhase('loading');
     setResult(null);
     setErrorMsg('');
     setCopied(false);
 
+    // Enrich vibe with profile context if available
+    const enrichedVibe = profile
+      ? `${trimmed} [context: preparing for ${profile.moment} moment, natural vibe is ${profile.vibe}, focused on ${profile.focus}]`
+      : trimmed;
+
     try {
       const res = await fetch('/api/generate-aura', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ prompt: trimmed }),
+        body:    JSON.stringify({ prompt: enrichedVibe }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed.');
 
       setResult(data.aura);
       setPhase('result');
-      setGenerationCount((c) => c + 1); // triggers archive auto-open
+      setGenerationCount((c) => c + 1);
 
-      // Fire-and-forget — never blocks or shows errors
       void silentSave(trimmed, data.aura);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Generation failed. Please try again.');
@@ -134,314 +190,378 @@ export default function AuvoraApp() {
     }
   }
 
+  // ── Tab handling ──────────────────────────────────────────────────────────
+
+  function handleTabChange(tab: AuvoraTab) {
+    const LIVE_TABS: AuvoraTab[] = ['aura'];
+    if (!LIVE_TABS.includes(tab)) {
+      setActiveTab(tab);
+      setTimeout(() => setActiveTab('aura'), 1200);
+      return;
+    }
+    setActiveTab(tab);
+  }
+
   const orbColors  = result?.palette.map((p) => p.hex) ?? [];
   const isDisabled = !vibe.trim() || phase === 'loading';
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <AuraShell>
+    <div className={`${cormorant.variable} ${mono.variable}`}>
 
-      {/* ── Header ── */}
-      <header
-        style={{
-          paddingTop: 52,
-          textAlign:  'center',
-          marginBottom: 12,
-          animation:  'fadeIn 0.9s ease forwards',
-        }}
-      >
-        <p
-          style={{
-            fontFamily:    'var(--font-body)',
-            fontSize:      '0.56rem',
-            letterSpacing: '0.32em',
-            color:         'var(--gold)',
-            opacity:       0.65,
-            textTransform: 'uppercase',
-            marginBottom:  10,
-          }}
-        >
-          ◈ Aura OS
-        </p>
-
-        <h1
-          className="font-display"
-          style={{
-            fontSize:      'clamp(2.8rem, 11vw, 4rem)',
-            fontWeight:    300,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color:         'var(--text-primary)',
-            lineHeight:    1,
-          }}
-        >
-          AUVORA
-        </h1>
-
-        <p
-          style={{
-            fontFamily:    'var(--font-body)',
-            fontSize:      '0.72rem',
-            fontWeight:    300,
-            color:         'var(--text-secondary)',
-            letterSpacing: '0.1em',
-            marginTop:     12,
-          }}
-        >
-          Editorial aura operating system
-        </p>
-      </header>
-
-      {/* ── Orb ── */}
-      <div style={{ animation: 'driftUp 0.7s 0.15s cubic-bezier(0.22,1,0.36,1) both' }}>
-        <AuraOrb colors={orbColors} isActive={phase === 'result'} />
-      </div>
-
-      {/* ── Input ── */}
-      <div style={{ animation: 'driftUp 0.6s 0.25s cubic-bezier(0.22,1,0.36,1) both' }}>
-        <StillPointInput
-          value={vibe}
-          onChange={setVibe}
-          disabled={phase === 'loading'}
-        />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
-          <button
-            onClick={handleQuickVibe}
-            disabled={phase === 'loading'}
-            style={{
-              background:    'transparent',
-              border:        '1px solid var(--border-subtle)',
-              borderRadius:  'var(--radius-md)',
-              padding:       '0 16px',
-              height:        40,
-              fontFamily:    'var(--font-body)',
-              fontSize:      '0.74rem',
-              fontWeight:    300,
-              color:         'var(--text-secondary)',
-              cursor:        phase === 'loading' ? 'default' : 'pointer',
-              letterSpacing: '0.04em',
-              whiteSpace:    'nowrap',
-              flexShrink:    0,
-              transition:    'border-color 0.15s ease, color 0.15s ease',
-              opacity:       phase === 'loading' ? 0.4 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (phase !== 'loading') {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-interactive)';
-                (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-primary)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-subtle)';
-              (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-secondary)';
-            }}
-          >
-            Quick Vibe
-          </button>
-
-          <div style={{ flex: 1 }}>
-            <AuraGenerateButton
-              onClick={handleGenerate}
-              isLoading={phase === 'loading'}
-              disabled={isDisabled}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Skeleton ── */}
-      {phase === 'loading' && (
-        <div
-          style={{
-            marginTop: 36,
-            display:   'flex',
-            flexDirection: 'column',
-            gap:       12,
-            animation: 'fadeIn 0.35s ease forwards',
-          }}
-        >
-          <div className="skeleton" style={{ height: 48 }} />
-          <div className="skeleton" style={{ height: 120 }} />
-          <div className="skeleton" style={{ height: 96 }} />
-          <div className="skeleton" style={{ height: 140 }} />
-          <div className="skeleton" style={{ height: 72 }} />
-        </div>
+      {/* ── Splash ── */}
+      {!splashDone && (
+        <SplashScreen onComplete={handleSplashComplete} />
       )}
 
-      {/* ── Error ── */}
-      {phase === 'error' && (
-        <div
-          style={{
-            marginTop:    28,
-            padding:      '20px 22px',
-            background:   'var(--surface)',
-            border:       '1px solid rgba(180,60,60,0.22)',
-            borderRadius: 'var(--radius-lg)',
-            animation:    'driftUp 0.35s ease forwards',
-          }}
-        >
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   '0.84rem',
-              color:      '#c97070',
-              lineHeight: 1.5,
-              marginBottom: 14,
-            }}
-          >
-            {errorMsg}
-          </p>
-          <button
-            onClick={handleGenerate}
-            style={{
-              background:    'transparent',
-              border:        '1px solid var(--border-interactive)',
-              borderRadius:  'var(--radius-md)',
-              padding:       '9px 18px',
-              color:         'var(--text-primary)',
-              fontFamily:    'var(--font-body)',
-              fontSize:      '0.78rem',
-              fontWeight:    400,
-              letterSpacing: '0.06em',
-              cursor:        'pointer',
-              transition:    'border-color 0.15s ease',
-            }}
-          >
-            Retry
-          </button>
-        </div>
+      {/* ── Onboarding ── */}
+      {splashDone && !onboardingDone && (
+        <OnboardingFlow onComplete={handleOnboardingComplete} />
       )}
 
-      {/* ── Result ── */}
-      {phase === 'result' && result && (
-        <div style={{ marginTop: 36 }}>
-
-          {/* Vibe name */}
+      {/* ── Main app ── */}
+      {splashDone && onboardingDone && (
+        <>
+          {/* Tab content */}
           <div
+            key={activeTab}
             style={{
-              textAlign:   'center',
-              marginBottom: 28,
-              animation:   'driftUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
+              paddingBottom: 80,
+              animation:     'au-tab-switch 0.3s ease',
             }}
           >
-            <p
-              style={{
-                fontFamily:    'var(--font-body)',
-                fontSize:      '0.58rem',
-                fontWeight:    400,
-                letterSpacing: '0.22em',
-                color:         'var(--text-disabled)',
-                textTransform: 'uppercase',
-                marginBottom:  10,
-              }}
-            >
-              Your Aura
-            </p>
-            <h2
-              className="font-display"
-              style={{
-                fontSize:  'clamp(1.9rem, 7vw, 2.8rem)',
-                fontStyle: 'italic',
-                fontWeight: 300,
-                color:     'var(--text-primary)',
-                lineHeight: 1.15,
-              }}
-            >
-              {result.vibeName}
-            </h2>
+            {activeTab === 'style'   ? <StyleTab />   :
+             activeTab === 'scent'   ? <ScentTab />   :
+             activeTab === 'sound'   ? <SoundTab />   :
+             activeTab === 'profile' ? <ProfileTab /> :
+             /* ── Aura tab (existing generator UI) ── */
+             <AuraShell>
+
+               {/* ── Header ── */}
+               <header
+                 style={{
+                   paddingTop:   52,
+                   textAlign:    'center',
+                   marginBottom: 12,
+                   animation:    'fadeIn 0.9s ease forwards',
+                 }}
+               >
+                 <p
+                   style={{
+                     fontFamily:    'var(--font-body)',
+                     fontSize:      '0.56rem',
+                     letterSpacing: '0.32em',
+                     color:         'var(--gold)',
+                     opacity:       0.65,
+                     textTransform: 'uppercase',
+                     marginBottom:  10,
+                   }}
+                 >
+                   ◈ Aura OS
+                 </p>
+
+                 <h1
+                   className="font-display"
+                   style={{
+                     fontSize:      'clamp(2.8rem, 11vw, 4rem)',
+                     fontWeight:    300,
+                     letterSpacing: '0.15em',
+                     textTransform: 'uppercase',
+                     color:         'var(--text-primary)',
+                     lineHeight:    1,
+                   }}
+                 >
+                   AUVORA
+                 </h1>
+
+                 <p
+                   style={{
+                     fontFamily:    'var(--font-body)',
+                     fontSize:      '0.72rem',
+                     fontWeight:    300,
+                     color:         'var(--text-secondary)',
+                     letterSpacing: '0.1em',
+                     marginTop:     12,
+                   }}
+                 >
+                   Editorial aura operating system
+                 </p>
+               </header>
+
+               {/* ── Orb ── */}
+               <div style={{ animation: 'driftUp 0.7s 0.15s cubic-bezier(0.22,1,0.36,1) both' }}>
+                 <AuraOrb colors={orbColors} isActive={phase === 'result'} />
+               </div>
+
+               {/* ── Input ── */}
+               <div style={{ animation: 'driftUp 0.6s 0.25s cubic-bezier(0.22,1,0.36,1) both' }}>
+                 <StillPointInput
+                   value={vibe}
+                   onChange={setVibe}
+                   disabled={phase === 'loading'}
+                 />
+
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                   <button
+                     onClick={handleQuickVibe}
+                     disabled={phase === 'loading'}
+                     style={{
+                       background:    'transparent',
+                       border:        '1px solid var(--border-subtle)',
+                       borderRadius:  'var(--radius-md)',
+                       padding:       '0 16px',
+                       height:        40,
+                       fontFamily:    'var(--font-body)',
+                       fontSize:      '0.74rem',
+                       fontWeight:    300,
+                       color:         'var(--text-secondary)',
+                       cursor:        phase === 'loading' ? 'default' : 'pointer',
+                       letterSpacing: '0.04em',
+                       whiteSpace:    'nowrap',
+                       flexShrink:    0,
+                       transition:    'border-color 0.15s ease, color 0.15s ease',
+                       opacity:       phase === 'loading' ? 0.4 : 1,
+                     }}
+                     onMouseEnter={(e) => {
+                       if (phase !== 'loading') {
+                         (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-interactive)';
+                         (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-primary)';
+                       }
+                     }}
+                     onMouseLeave={(e) => {
+                       (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-subtle)';
+                       (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-secondary)';
+                     }}
+                   >
+                     Quick Vibe
+                   </button>
+
+                   <div style={{ flex: 1 }}>
+                     <AuraGenerateButton
+                       onClick={() => handleGenerate()}
+                       isLoading={phase === 'loading'}
+                       disabled={isDisabled}
+                     />
+                   </div>
+                 </div>
+               </div>
+
+               {/* ── Skeleton ── */}
+               {phase === 'loading' && (
+                 <div
+                   style={{
+                     marginTop:     36,
+                     display:       'flex',
+                     flexDirection: 'column',
+                     gap:           12,
+                     animation:     'fadeIn 0.35s ease forwards',
+                   }}
+                 >
+                   <div className="skeleton" style={{ height: 48 }} />
+                   <div className="skeleton" style={{ height: 120 }} />
+                   <div className="skeleton" style={{ height: 96 }} />
+                   <div className="skeleton" style={{ height: 140 }} />
+                   <div className="skeleton" style={{ height: 72 }} />
+                 </div>
+               )}
+
+               {/* ── Error ── */}
+               {phase === 'error' && (
+                 <div
+                   style={{
+                     marginTop:    28,
+                     padding:      '20px 22px',
+                     background:   'var(--surface)',
+                     border:       '1px solid rgba(180,60,60,0.22)',
+                     borderRadius: 'var(--radius-lg)',
+                     animation:    'driftUp 0.35s ease forwards',
+                   }}
+                 >
+                   <p
+                     style={{
+                       fontFamily:   'var(--font-body)',
+                       fontSize:     '0.84rem',
+                       color:        '#c97070',
+                       lineHeight:   1.5,
+                       marginBottom: 14,
+                     }}
+                   >
+                     {errorMsg}
+                   </p>
+                   <button
+                     onClick={() => handleGenerate()}
+                     style={{
+                       background:    'transparent',
+                       border:        '1px solid var(--border-interactive)',
+                       borderRadius:  'var(--radius-md)',
+                       padding:       '9px 18px',
+                       color:         'var(--text-primary)',
+                       fontFamily:    'var(--font-body)',
+                       fontSize:      '0.78rem',
+                       fontWeight:    400,
+                       letterSpacing: '0.06em',
+                       cursor:        'pointer',
+                       transition:    'border-color 0.15s ease',
+                     }}
+                   >
+                     Retry
+                   </button>
+                 </div>
+               )}
+
+               {/* ── Result ── */}
+               {phase === 'result' && result && (
+                 <div style={{ marginTop: 36 }}>
+
+                   {/* Vibe name */}
+                   <div
+                     style={{
+                       textAlign:    'center',
+                       marginBottom: 28,
+                       animation:    'driftUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
+                     }}
+                   >
+                     <p
+                       style={{
+                         fontFamily:    'var(--font-body)',
+                         fontSize:      '0.58rem',
+                         fontWeight:    400,
+                         letterSpacing: '0.22em',
+                         color:         'var(--text-disabled)',
+                         textTransform: 'uppercase',
+                         marginBottom:  10,
+                       }}
+                     >
+                       Your Aura
+                     </p>
+                     <h2
+                       className="font-display"
+                       style={{
+                         fontSize:   'clamp(1.9rem, 7vw, 2.8rem)',
+                         fontStyle:  'italic',
+                         fontWeight: 300,
+                         color:      'var(--text-primary)',
+                         lineHeight: 1.15,
+                       }}
+                     >
+                       {result.vibeName}
+                     </h2>
+                   </div>
+
+                   {/* Palette */}
+                   <div style={{ animation: 'driftUp 0.5s 60ms cubic-bezier(0.22,1,0.36,1) both', marginBottom: 24 }}>
+                     <PaletteSwatchRow palette={result.palette} />
+                   </div>
+
+                   {/* Staggered cards */}
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                     <AuraCard type="outfit"    data={result.outfit}    delay={0}   />
+                     <AuraCard type="fragrance" data={result.fragrance} delay={80}  />
+                     <AuraCard type="playlist"  data={result.playlist}  delay={160} />
+                     <AuraCard type="caption"   data={result.caption}   delay={240} />
+                   </div>
+
+                   {/* Copy caption */}
+                   <div
+                     style={{
+                       display:        'flex',
+                       justifyContent: 'center',
+                       marginTop:      20,
+                       animation:      'driftUp 0.5s 320ms cubic-bezier(0.22,1,0.36,1) both',
+                     }}
+                   >
+                     <button
+                       onClick={handleCopy}
+                       aria-label="Copy caption to clipboard"
+                       style={{
+                         background:    copied ? 'rgba(202,138,4,0.1)' : 'transparent',
+                         border:        `1px solid ${copied ? 'rgba(202,138,4,0.35)' : 'var(--border-subtle)'}`,
+                         borderRadius:  'var(--radius-md)',
+                         padding:       '10px 22px',
+                         color:         copied ? 'var(--gold)' : 'var(--text-secondary)',
+                         fontFamily:    'var(--font-body)',
+                         fontSize:      '0.74rem',
+                         fontWeight:    300,
+                         letterSpacing: '0.07em',
+                         cursor:        'pointer',
+                         display:       'flex',
+                         alignItems:    'center',
+                         gap:           8,
+                         transition:    'all 0.2s ease',
+                       }}
+                     >
+                       {copied ? (
+                         <>
+                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                             <polyline points="20 6 9 17 4 12" />
+                           </svg>
+                           Copied
+                         </>
+                       ) : (
+                         <>
+                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                           </svg>
+                           Copy Caption
+                         </>
+                       )}
+                     </button>
+                   </div>
+                 </div>
+               )}
+
+               {/* ── Archive ── */}
+               <AuraArchive refreshKey={savedCount} generationCount={generationCount} />
+
+               {/* ── Footer ── */}
+               <footer
+                 style={{
+                   textAlign:  'center',
+                   padding:    '52px 0 0',
+                   marginTop:  48,
+                   borderTop:  '1px solid var(--border-subtle)',
+                 }}
+               >
+                 <p
+                   style={{
+                     fontFamily:    'var(--font-body)',
+                     fontSize:      '0.58rem',
+                     fontWeight:    300,
+                     color:         'var(--text-disabled)',
+                     letterSpacing: '0.16em',
+                     textTransform: 'uppercase',
+                   }}
+                 >
+                   AUVORA — Aura OS &copy; {new Date().getFullYear()}
+                 </p>
+               </footer>
+
+             </AuraShell>
+            }
           </div>
 
-          {/* Palette */}
-          <div style={{ animation: 'driftUp 0.5s 60ms cubic-bezier(0.22,1,0.36,1) both', marginBottom: 24 }}>
-            <PaletteSwatchRow palette={result.palette} />
-          </div>
+          {/* ── Bottom nav ── */}
+          <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
-          {/* Staggered cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <AuraCard type="outfit"    data={result.outfit}    delay={0}   />
-            <AuraCard type="fragrance" data={result.fragrance} delay={80}  />
-            <AuraCard type="playlist"  data={result.playlist}  delay={160} />
-            <AuraCard type="caption"   data={result.caption}   delay={240} />
-          </div>
-
-          {/* Copy caption */}
-          <div
-            style={{
-              display:        'flex',
-              justifyContent: 'center',
-              marginTop:      20,
-              animation:      'driftUp 0.5s 320ms cubic-bezier(0.22,1,0.36,1) both',
+          {/* ── Assistant FAB ── */}
+          <AuraAssistant
+            currentAura={result ? {
+              vibe,
+              outfit:    result.outfit.description,
+              fragrance: result.fragrance.notes,
+              playlist:  result.playlist.title,
+              caption:   result.caption,
+            } : null}
+            onRefinement={(refinedVibe) => {
+              setVibe(refinedVibe);
+              void handleGenerate(refinedVibe);
             }}
-          >
-            <button
-              onClick={handleCopy}
-              aria-label="Copy caption to clipboard"
-              style={{
-                background:    copied ? 'rgba(202,138,4,0.1)' : 'transparent',
-                border:        `1px solid ${copied ? 'rgba(202,138,4,0.35)' : 'var(--border-subtle)'}`,
-                borderRadius:  'var(--radius-md)',
-                padding:       '10px 22px',
-                color:         copied ? 'var(--gold)' : 'var(--text-secondary)',
-                fontFamily:    'var(--font-body)',
-                fontSize:      '0.74rem',
-                fontWeight:    300,
-                letterSpacing: '0.07em',
-                cursor:        'pointer',
-                display:       'flex',
-                alignItems:    'center',
-                gap:           8,
-                transition:    'all 0.2s ease',
-              }}
-            >
-              {copied ? (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Copied
-                </>
-              ) : (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                  Copy Caption
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+          />
+        </>
       )}
 
-      {/* ── Archive ── */}
-      <AuraArchive refreshKey={savedCount} generationCount={generationCount} />
-
-      {/* ── Footer ── */}
-      <footer
-        style={{
-          textAlign:   'center',
-          padding:     '52px 0 0',
-          marginTop:   48,
-          borderTop:   '1px solid var(--border-subtle)',
-        }}
-      >
-        <p
-          style={{
-            fontFamily:    'var(--font-body)',
-            fontSize:      '0.58rem',
-            fontWeight:    300,
-            color:         'var(--text-disabled)',
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-          }}
-        >
-          AUVORA — Aura OS &copy; {new Date().getFullYear()}
-        </p>
-      </footer>
-
-    </AuraShell>
+    </div>
   );
 }
