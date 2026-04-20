@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'AUVORA — Your Aura, Curated',
   description: 'An AI-powered aura operating system. Generate your complete lifestyle vibe.',
-  keywords: ['aura', 'lifestyle', 'fashion', 'fragrance', 'vibe', 'aesthetic'],
+  keywords: ['aura', 'lifestyle', 'fashion', 'fragrance', 'vibe'],
   authors: [{ name: 'AUVORA' }],
   openGraph: {
     title: 'AUVORA',
@@ -17,14 +17,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#080808',
+  themeColor: '#0E0C0B',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
