@@ -14,7 +14,10 @@ import SplashScreen from '@/components/SplashScreen';
 import OnboardingFlow, { AuvoraProfile } from '@/components/OnboardingFlow';
 import BottomNav, { AuvoraTab } from '@/components/BottomNav';
 import AuraAssistant from '@/components/AuraAssistant';
-import { StyleTab, ScentTab, SoundTab, ProfileTab } from '@/components/tabs/TabScaffolds';
+import StyleTab   from '@/components/tabs/StyleTab';
+import ScentTab   from '@/components/tabs/ScentTab';
+import SoundTab   from '@/components/tabs/SoundTab';
+import ProfileTab from '@/components/tabs/ProfileTab';
 
 // ── New fonts (Cormorant + DM Mono) used by splash / onboarding / nav ─────────
 
@@ -193,7 +196,7 @@ export default function AuvoraApp() {
   // ── Tab handling ──────────────────────────────────────────────────────────
 
   function handleTabChange(tab: AuvoraTab) {
-    const LIVE_TABS: AuvoraTab[] = ['aura'];
+    const LIVE_TABS: AuvoraTab[] = ['aura', 'style', 'scent', 'sound', 'profile'];
     if (!LIVE_TABS.includes(tab)) {
       setActiveTab(tab);
       setTimeout(() => setActiveTab('aura'), 1200);

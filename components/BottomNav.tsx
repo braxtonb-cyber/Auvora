@@ -36,7 +36,7 @@ const TABS = [
   {
     id: 'style' as AuvoraTab,
     label: 'Style',
-    live: false,
+    live: true,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect
@@ -57,7 +57,7 @@ const TABS = [
   {
     id: 'scent' as AuvoraTab,
     label: 'Scent',
-    live: false,
+    live: true,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path
@@ -85,7 +85,7 @@ const TABS = [
   {
     id: 'sound' as AuvoraTab,
     label: 'Sound',
-    live: false,
+    live: true,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path
@@ -100,7 +100,7 @@ const TABS = [
   {
     id: 'profile' as AuvoraTab,
     label: 'Profile',
-    live: false,
+    live: true,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <circle
@@ -179,10 +179,10 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 padding: '6px 12px',
                 background: 'none',
                 border: 'none',
-                cursor: tab.live ? 'pointer' : 'default',
+                cursor: 'pointer',
                 outline: 'none',
                 WebkitTapHighlightColor: 'transparent',
-                opacity: tab.live ? 1 : 0.35,
+                opacity: 1,
                 transition: 'opacity 0.2s ease',
                 position: 'relative',
               }}
@@ -228,20 +228,6 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                 {tab.label}
               </span>
 
-              {/* Coming soon dot for non-live tabs */}
-              {!tab.live && !isActive && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 2,
-                    right: 10,
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: 'rgba(196,164,107,0.25)',
-                  }}
-                />
-              )}
             </button>
           )
         })}
