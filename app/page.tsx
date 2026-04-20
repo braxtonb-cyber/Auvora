@@ -1,22 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import AuraShell from '@/components/AuraShell';
 import StillPointInput from '@/components/StillPointInput';
 import AuraGenerateButton from '@/components/AuraGenerateButton';
 import AuraOrb from '@/components/AuraOrb';
 import AuraCard from '@/components/AuraCard';
 import PaletteSwatchRow from '@/components/PaletteSwatchRow';
+import AuraArchive from '@/components/AuraArchive';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AuraResult {
-  vibeName: string;
-  outfit: { title: string; description: string };
+  vibeName:  string;
+  outfit:    { title: string; description: string };
   fragrance: { title: string; notes: string };
-  playlist: { title: string; tracks: string[] };
-  palette: { hex: string; name: string }[];
-  caption: string;
+  playlist:  { title: string; tracks: string[] };
+  palette:   { hex: string; name: string }[];
+  caption:   string;
 }
 
 type Phase = 'idle' | 'loading' | 'result' | 'error';
@@ -37,11 +39,42 @@ const QUICK_VIBES = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AuvoraApp() {
-  const [vibe, setVibe]     = useState('');
-  const [phase, setPhase]   = useState<Phase>('idle');
-  const [result, setResult] = useState<AuraResult | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [copied, setCopied]  = useState(false);
+  const supabase = createClient();
+
+  const [vibe,       setVibe]       = useState('');
+  const [phase,      setPhase]      = useState<Phase>('idle');
+  const [result,     setResult]     = useState<AuraResult | null>(null);
+  const [errorMsg,   setErrorMsg]   = useState('');
+  const [copied,     setCopied]     = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+
+  // ── Silent anonymous auth on first visit ──────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        supabase.auth.signInAnonymously().catch(() => {});
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Silent save after generation ──────────────────────────────────────────
+  async function silentSave(vibeInput: string, aura: AuraResult) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase.from('aura_entries').insert({
+        user_id:     user.id,
+        vibe_input:  vibeInput,
+        output_json: aura,
+        is_saved:    true,
+      });
+      if (!error) setSavedCount((c) => c + 1);
+    } catch {
+      // non-blocking — never surface to user
+    }
+  }
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleQuickVibe() {
     const pick = QUICK_VIBES[Math.floor(Math.random() * QUICK_VIBES.length)];
@@ -59,14 +92,18 @@ export default function AuvoraApp() {
 
     try {
       const res = await fetch('/api/generate-aura', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: trimmed }),
+        body:    JSON.stringify({ prompt: trimmed }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed.');
+
       setResult(data.aura);
       setPhase('result');
+
+      // Fire-and-forget — never blocks or shows errors
+      void silentSave(trimmed, data.aura);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Generation failed. Please try again.');
       setPhase('error');
@@ -87,6 +124,8 @@ export default function AuvoraApp() {
   const orbColors  = result?.palette.map((p) => p.hex) ?? [];
   const isDisabled = !vibe.trim() || phase === 'loading';
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <AuraShell>
 
@@ -94,20 +133,20 @@ export default function AuvoraApp() {
       <header
         style={{
           paddingTop: 52,
-          textAlign: 'center',
+          textAlign:  'center',
           marginBottom: 12,
-          animation: 'fadeIn 0.9s ease forwards',
+          animation:  'fadeIn 0.9s ease forwards',
         }}
       >
         <p
           style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.56rem',
+            fontFamily:    'var(--font-body)',
+            fontSize:      '0.56rem',
             letterSpacing: '0.32em',
-            color: 'var(--gold)',
-            opacity: 0.65,
+            color:         'var(--gold)',
+            opacity:       0.65,
             textTransform: 'uppercase',
-            marginBottom: 10,
+            marginBottom:  10,
           }}
         >
           ◈ Aura OS
@@ -116,12 +155,12 @@ export default function AuvoraApp() {
         <h1
           className="font-display"
           style={{
-            fontSize: 'clamp(2.8rem, 11vw, 4rem)',
-            fontWeight: 300,
+            fontSize:      'clamp(2.8rem, 11vw, 4rem)',
+            fontWeight:    300,
             letterSpacing: '0.15em',
             textTransform: 'uppercase',
-            color: 'var(--text-primary)',
-            lineHeight: 1,
+            color:         'var(--text-primary)',
+            lineHeight:    1,
           }}
         >
           AUVORA
@@ -129,24 +168,24 @@ export default function AuvoraApp() {
 
         <p
           style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.72rem',
-            fontWeight: 300,
-            color: 'var(--text-secondary)',
+            fontFamily:    'var(--font-body)',
+            fontSize:      '0.72rem',
+            fontWeight:    300,
+            color:         'var(--text-secondary)',
             letterSpacing: '0.1em',
-            marginTop: 12,
+            marginTop:     12,
           }}
         >
           Editorial aura operating system
         </p>
       </header>
 
-      {/* ── Orb — always visible, recolors on result ── */}
+      {/* ── Orb ── */}
       <div style={{ animation: 'driftUp 0.7s 0.15s cubic-bezier(0.22,1,0.36,1) both' }}>
         <AuraOrb colors={orbColors} isActive={phase === 'result'} />
       </div>
 
-      {/* ── Input section ── */}
+      {/* ── Input ── */}
       <div style={{ animation: 'driftUp 0.6s 0.25s cubic-bezier(0.22,1,0.36,1) both' }}>
         <StillPointInput
           value={vibe}
@@ -154,48 +193,36 @@ export default function AuvoraApp() {
           disabled={phase === 'loading'}
         />
 
-        {/* Quick Vibe + Generate row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginTop: 12,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
           <button
             onClick={handleQuickVibe}
             disabled={phase === 'loading'}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0 16px',
-              height: 40,
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.74rem',
-              fontWeight: 300,
-              color: 'var(--text-secondary)',
-              cursor: phase === 'loading' ? 'default' : 'pointer',
+              background:    'transparent',
+              border:        '1px solid var(--border-subtle)',
+              borderRadius:  'var(--radius-md)',
+              padding:       '0 16px',
+              height:        40,
+              fontFamily:    'var(--font-body)',
+              fontSize:      '0.74rem',
+              fontWeight:    300,
+              color:         'var(--text-secondary)',
+              cursor:        phase === 'loading' ? 'default' : 'pointer',
               letterSpacing: '0.04em',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              transition: 'border-color 0.15s ease, color 0.15s ease',
-              opacity: phase === 'loading' ? 0.4 : 1,
+              whiteSpace:    'nowrap',
+              flexShrink:    0,
+              transition:    'border-color 0.15s ease, color 0.15s ease',
+              opacity:       phase === 'loading' ? 0.4 : 1,
             }}
             onMouseEnter={(e) => {
               if (phase !== 'loading') {
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  'var(--border-interactive)';
-                (e.currentTarget as HTMLButtonElement).style.color =
-                  'var(--text-primary)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-interactive)';
+                (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-primary)';
               }
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                'var(--border-subtle)';
-              (e.currentTarget as HTMLButtonElement).style.color =
-                'var(--text-secondary)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-subtle)';
+              (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-secondary)';
             }}
           >
             Quick Vibe
@@ -211,14 +238,14 @@ export default function AuvoraApp() {
         </div>
       </div>
 
-      {/* ── Skeleton loader ── */}
+      {/* ── Skeleton ── */}
       {phase === 'loading' && (
         <div
           style={{
             marginTop: 36,
-            display: 'flex',
+            display:   'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap:       12,
             animation: 'fadeIn 0.35s ease forwards',
           }}
         >
@@ -230,23 +257,23 @@ export default function AuvoraApp() {
         </div>
       )}
 
-      {/* ── Error state ── */}
+      {/* ── Error ── */}
       {phase === 'error' && (
         <div
           style={{
-            marginTop: 28,
-            padding: '20px 22px',
-            background: 'var(--surface)',
-            border: '1px solid rgba(180, 60, 60, 0.22)',
+            marginTop:    28,
+            padding:      '20px 22px',
+            background:   'var(--surface)',
+            border:       '1px solid rgba(180,60,60,0.22)',
             borderRadius: 'var(--radius-lg)',
-            animation: 'driftUp 0.35s ease forwards',
+            animation:    'driftUp 0.35s ease forwards',
           }}
         >
           <p
             style={{
               fontFamily: 'var(--font-body)',
-              fontSize: '0.84rem',
-              color: '#c97070',
+              fontSize:   '0.84rem',
+              color:      '#c97070',
               lineHeight: 1.5,
               marginBottom: 14,
             }}
@@ -256,17 +283,17 @@ export default function AuvoraApp() {
           <button
             onClick={handleGenerate}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-interactive)',
-              borderRadius: 'var(--radius-md)',
-              padding: '9px 18px',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.78rem',
-              fontWeight: 400,
+              background:    'transparent',
+              border:        '1px solid var(--border-interactive)',
+              borderRadius:  'var(--radius-md)',
+              padding:       '9px 18px',
+              color:         'var(--text-primary)',
+              fontFamily:    'var(--font-body)',
+              fontSize:      '0.78rem',
+              fontWeight:    400,
               letterSpacing: '0.06em',
-              cursor: 'pointer',
-              transition: 'border-color 0.15s ease',
+              cursor:        'pointer',
+              transition:    'border-color 0.15s ease',
             }}
           >
             Retry
@@ -281,20 +308,20 @@ export default function AuvoraApp() {
           {/* Vibe name */}
           <div
             style={{
-              textAlign: 'center',
+              textAlign:   'center',
               marginBottom: 28,
-              animation: 'driftUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
+              animation:   'driftUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
             }}
           >
             <p
               style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.58rem',
-                fontWeight: 400,
+                fontFamily:    'var(--font-body)',
+                fontSize:      '0.58rem',
+                fontWeight:    400,
                 letterSpacing: '0.22em',
-                color: 'var(--text-disabled)',
+                color:         'var(--text-disabled)',
                 textTransform: 'uppercase',
-                marginBottom: 10,
+                marginBottom:  10,
               }}
             >
               Your Aura
@@ -302,10 +329,10 @@ export default function AuvoraApp() {
             <h2
               className="font-display"
               style={{
-                fontSize: 'clamp(1.9rem, 7vw, 2.8rem)',
+                fontSize:  'clamp(1.9rem, 7vw, 2.8rem)',
                 fontStyle: 'italic',
                 fontWeight: 300,
-                color: 'var(--text-primary)',
+                color:     'var(--text-primary)',
                 lineHeight: 1.15,
               }}
             >
@@ -314,12 +341,7 @@ export default function AuvoraApp() {
           </div>
 
           {/* Palette */}
-          <div
-            style={{
-              animation: 'driftUp 0.5s 60ms cubic-bezier(0.22,1,0.36,1) both',
-              marginBottom: 24,
-            }}
-          >
+          <div style={{ animation: 'driftUp 0.5s 60ms cubic-bezier(0.22,1,0.36,1) both', marginBottom: 24 }}>
             <PaletteSwatchRow palette={result.palette} />
           </div>
 
@@ -331,33 +353,33 @@ export default function AuvoraApp() {
             <AuraCard type="caption"   data={result.caption}   delay={240} />
           </div>
 
-          {/* Copy caption button */}
+          {/* Copy caption */}
           <div
             style={{
-              display: 'flex',
+              display:        'flex',
               justifyContent: 'center',
-              marginTop: 20,
-              animation: 'driftUp 0.5s 320ms cubic-bezier(0.22,1,0.36,1) both',
+              marginTop:      20,
+              animation:      'driftUp 0.5s 320ms cubic-bezier(0.22,1,0.36,1) both',
             }}
           >
             <button
               onClick={handleCopy}
               aria-label="Copy caption to clipboard"
               style={{
-                background: copied ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
-                border: `1px solid ${copied ? 'rgba(202, 138, 4, 0.35)' : 'var(--border-subtle)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '10px 22px',
-                color: copied ? 'var(--gold)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.74rem',
-                fontWeight: 300,
+                background:    copied ? 'rgba(202,138,4,0.1)' : 'transparent',
+                border:        `1px solid ${copied ? 'rgba(202,138,4,0.35)' : 'var(--border-subtle)'}`,
+                borderRadius:  'var(--radius-md)',
+                padding:       '10px 22px',
+                color:         copied ? 'var(--gold)' : 'var(--text-secondary)',
+                fontFamily:    'var(--font-body)',
+                fontSize:      '0.74rem',
+                fontWeight:    300,
                 letterSpacing: '0.07em',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                transition: 'all 0.2s ease',
+                cursor:        'pointer',
+                display:       'flex',
+                alignItems:    'center',
+                gap:           8,
+                transition:    'all 0.2s ease',
               }}
             >
               {copied ? (
@@ -381,21 +403,24 @@ export default function AuvoraApp() {
         </div>
       )}
 
+      {/* ── Archive ── */}
+      <AuraArchive refreshKey={savedCount} />
+
       {/* ── Footer ── */}
       <footer
         style={{
-          textAlign: 'center',
-          padding: '52px 0 0',
-          marginTop: phase === 'idle' ? 60 : 48,
-          borderTop: '1px solid var(--border-subtle)',
+          textAlign:   'center',
+          padding:     '52px 0 0',
+          marginTop:   48,
+          borderTop:   '1px solid var(--border-subtle)',
         }}
       >
         <p
           style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.58rem',
-            fontWeight: 300,
-            color: 'var(--text-disabled)',
+            fontFamily:    'var(--font-body)',
+            fontSize:      '0.58rem',
+            fontWeight:    300,
+            color:         'var(--text-disabled)',
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
           }}
