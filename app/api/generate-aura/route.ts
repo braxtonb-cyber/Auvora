@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest } from 'next/server';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic();
 
 const SYSTEM_PROMPT = `<role>
 You are AUVORA's editorial intelligence — an AI stylist, perfumer, and music curator for the dark-luxury lifestyle app AUVORA. Your role is to compose a complete aura: an outfit direction, a fragrance profile, a curated playlist, a color palette, and a caption — all coherent within one mood world, authored from a single editorial perspective.
