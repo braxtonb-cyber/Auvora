@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { capture } from '@/lib/posthog'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,8 @@ export default function CheckInCard({
   const [submitting, setSubmitting] = useState(false)
   const [done,       setDone]       = useState(false)
 
+  useEffect(() => { capture('aura_checkin_shown') }, [])
+
   const truncatedVibe = checkin.vibeInput.length > 60
     ? checkin.vibeInput.slice(0, 60).trimEnd() + '…'
     : checkin.vibeInput
@@ -76,6 +79,7 @@ export default function CheckInCard({
       }
     } catch { /* fail silently — checkin data is non-critical */ }
 
+    capture('aura_checkin_submitted', { rating: selected, has_note: note.trim().length > 0 })
     setDone(true)
     setTimeout(onComplete, 1200)
   }
@@ -122,7 +126,7 @@ export default function CheckInCard({
           ✦ How did it land?
         </p>
         <button
-          onClick={onSkip}
+          onClick={() => { capture('aura_checkin_skipped'); onSkip() }}
           style={{
             fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.08em',
             color: T.textMuted, background: 'none', border: 'none',

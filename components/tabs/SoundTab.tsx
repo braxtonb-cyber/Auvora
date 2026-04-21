@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
+import { capture } from '@/lib/posthog'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -552,6 +553,12 @@ export default function SoundTab() {
     localStorage.setItem('soundPrefs', JSON.stringify(completed))
     setPrefs(completed)
     setOnboarding(false)
+    capture('sound_onboarding_completed', {
+      sonic:          completed.sonic,
+      era:            completed.era,
+      platform:       completed.platform,
+      contexts_count: completed.contexts.length,
+    })
   }
 
   function deleteSavedPlaylist(id: string) {
@@ -570,6 +577,8 @@ export default function SoundTab() {
     setResult(null)
     setSaved(false)
 
+    capture('sound_generate_started', { vibe_length: v.trim().length, has_prefs: !!prefs })
+
     try {
       const res = await fetch('/api/generate-domain', {
         method:  'POST',
@@ -578,9 +587,17 @@ export default function SoundTab() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
-      setResult(data as SoundResult)
+      const sound = data as SoundResult
+      setResult(sound)
+      capture('sound_generate_completed', {
+        playlist_name: sound.playlistName,
+        energy:        sound.energy,
+        track_count:   sound.tracks?.length ?? 0,
+      })
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong')
+      const msg = e instanceof Error ? e.message : 'Something went wrong'
+      setError(msg)
+      capture('sound_generate_failed', { error: msg })
     } finally {
       setLoading(false)
     }
@@ -598,6 +615,7 @@ export default function SoundTab() {
     setSavedPlaylists(updated)
     localStorage.setItem('soundSavedPlaylists', JSON.stringify(updated))
     setSaved(true)
+    capture('sound_playlist_archived', { playlist_name: result.playlistName, energy: result.energy })
   }
 
   // ── Early returns ─────────────────────────────────────────────────────────────
@@ -954,6 +972,7 @@ export default function SoundTab() {
               href={platformLink}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => capture('sound_platform_link_tapped', { platform: prefs?.platform })}
               style={{
                 display: 'block', width: '100%', padding: '13px',
                 background: 'none',

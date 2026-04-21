@@ -19,6 +19,7 @@ import ScentTab   from '@/components/tabs/ScentTab';
 import SoundTab   from '@/components/tabs/SoundTab';
 import ProfileTab from '@/components/tabs/ProfileTab';
 import CheckInCard, { PendingCheckin } from '@/components/CheckInCard';
+import { capture, identify } from '@/lib/posthog';
 
 // ── New fonts (Cormorant + DM Mono) used by splash / onboarding / nav ─────────
 
@@ -301,10 +302,12 @@ export default function AuvoraApp() {
   // ── Silent anonymous auth on first visit ──────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        supabase.auth.signInAnonymously().catch((err) => {
-          console.error('[AUVORA] signInAnonymously failed:', err);
-        });
+      if (session?.user) {
+        identify(session.user.id);
+      } else {
+        supabase.auth.signInAnonymously()
+          .then(({ data }) => { if (data.user) identify(data.user.id); })
+          .catch((err) => { console.error('[AUVORA] signInAnonymously failed:', err); });
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -338,6 +341,7 @@ export default function AuvoraApp() {
   function handleOnboardingComplete(p: AuvoraProfile) {
     setProfile(p);
     setOnboardingDone(true);
+    capture('auvora_onboarding_completed', { moment: p.moment, vibe: p.vibe, focus: p.focus });
   }
 
   // ── Silent save after generation ──────────────────────────────────────────
@@ -369,6 +373,7 @@ export default function AuvoraApp() {
   function handleQuickVibe() {
     const pick = QUICK_VIBES[Math.floor(Math.random() * QUICK_VIBES.length)];
     setVibe(pick);
+    capture('aura_quick_vibe_used');
   }
 
   async function handleGenerate(vibeOverride?: string) {
@@ -382,6 +387,7 @@ export default function AuvoraApp() {
     setResult(null);
     setErrorMsg('');
     setCopied(false);
+    capture('aura_generate_started', { vibe_length: trimmed.length, has_profile: !!profile, has_recent: recentEntries.length > 0 });
 
     // Enrich vibe with profile context if available
     const enrichedVibe = profile
@@ -400,6 +406,7 @@ export default function AuvoraApp() {
       setResult(data.aura);
       setPhase('result');
       setGenerationCount((c) => c + 1);
+      capture('aura_generate_completed', { vibe_name: data.aura.vibeName });
 
       void silentSave(trimmed, data.aura);
 
@@ -413,8 +420,10 @@ export default function AuvoraApp() {
         setPendingCheckin(null); // hide any existing check-in during active session
       } catch { /* ignore */ }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Generation failed. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.';
+      setErrorMsg(msg);
       setPhase('error');
+      capture('aura_generate_failed', { error: msg });
     }
   }
 
@@ -424,6 +433,7 @@ export default function AuvoraApp() {
       await navigator.clipboard.writeText(result.caption);
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
+      capture('aura_caption_copied');
     } catch {
       // clipboard unavailable — silent
     }
@@ -432,6 +442,7 @@ export default function AuvoraApp() {
   // ── Tab handling ──────────────────────────────────────────────────────────
 
   function handleTabChange(tab: AuvoraTab) {
+    capture('tab_changed', { tab, from: activeTab });
     const LIVE_TABS: AuvoraTab[] = ['aura', 'style', 'scent', 'sound', 'profile'];
     if (!LIVE_TABS.includes(tab)) {
       setActiveTab(tab);
@@ -570,7 +581,7 @@ export default function AuvoraApp() {
                        <div key={entry.id} style={{ animation: `au-fade-up 0.4s ${i * 55}ms ease both` }}>
                          <RecentVibeChip
                            entry={entry}
-                           onSelect={(v) => { setVibe(v); void handleGenerate(v); }}
+                           onSelect={(v) => { capture('aura_chip_tapped'); setVibe(v); void handleGenerate(v); }}
                          />
                        </div>
                      ))}

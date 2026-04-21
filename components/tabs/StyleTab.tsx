@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
+import { capture } from '@/lib/posthog'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -492,6 +493,7 @@ export default function StyleTab() {
     localStorage.setItem('stylePrefs', JSON.stringify(completed))
     setPrefs(completed)
     setOnboarding(false)
+    capture('style_onboarding_completed', { aesthetic: completed.aesthetic, fit: completed.fit, color: completed.color })
   }
 
   function deleteSavedLook(id: string) {
@@ -509,6 +511,7 @@ export default function StyleTab() {
     setError('')
     setResult(null)
     setSaved(false)
+    capture('style_generate_started', { has_prefs: !!prefs })
 
     try {
       const res = await fetch('/api/generate-domain', {
@@ -519,6 +522,7 @@ export default function StyleTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
       setResult(data as StyleResult)
+      capture('style_generate_completed', { concept: (data as StyleResult).concept })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
@@ -538,6 +542,7 @@ export default function StyleTab() {
     setSavedLooks(updated)
     localStorage.setItem('styleSavedLooks', JSON.stringify(updated))
     setSaved(true)
+    capture('style_look_saved', { concept: result.concept, total_saved: updated.length })
   }
 
   // ── Early returns ─────────────────────────────────────────────────────────────

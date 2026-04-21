@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { capture } from '@/lib/posthog'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   const [savedPlaylistsCount, setSavedPlaylistsCount] = useState(0)
 
   useEffect(() => {
+    capture('settings_opened')
     try {
       const sp = localStorage.getItem('stylePrefs')
       if (sp) setStylePrefs(JSON.parse(sp))
@@ -168,9 +170,11 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
       <button
         onClick={() => act(id, () => {
           if (id === 'reset-style') {
+            capture('settings_style_reset')
             localStorage.removeItem('stylePrefs')
             setStylePrefs(null)
           } else if (id === 'reset-sound') {
+            capture('settings_sound_reset')
             localStorage.removeItem('soundPrefs')
             setSoundPrefs(null)
           } else if (id === 'reset-aura') {
@@ -184,6 +188,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             localStorage.removeItem('soundSavedPlaylists')
             setSavedPlaylistsCount(0)
           } else if (id === 'reset-all') {
+            capture('settings_full_reset')
             createClient().auth.signOut().finally(() => {
               localStorage.clear()
               window.location.reload()
