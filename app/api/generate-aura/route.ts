@@ -49,7 +49,13 @@ Required shape (exactly):
     { "hex": "#xxxxxx", "name": "evocative color name" },
     { "hex": "#xxxxxx", "name": "evocative color name" }
   ],
-  "caption": "one sentence, 8–14 words"
+  "caption": "one sentence, 8–14 words",
+  "rationale": {
+    "signal": "1–2 sentences: what the vibe input reveals — the emotional register, time of day, level of solitude, atmosphere, what the person is actually moving toward",
+    "outfit": "1 sentence: the precise reason this silhouette and fabric direction fits this specific mood world",
+    "fragrance": "1 sentence: why this olfactive structure — top, heart, base — belongs in this moment",
+    "playlist": "1 sentence: what shapes the sonic arc and why these artists hold the emotional register of this vibe"
+  }
 }
 
 Constraints:
@@ -57,6 +63,7 @@ Constraints:
 - hex values must be valid 6-digit lowercase hex codes beginning with #
 - tracks must contain exactly 5 strings
 - All string fields must be non-empty
+- rationale fields must each be honest, specific, and non-generic — name what the input actually signals
 </output_contract>
 
 <examples>
@@ -66,7 +73,7 @@ Constraints:
 </example>
 <example>
 <input>midnight drive through neon city streets, alone</input>
-<output>{"vibeName":"Nocturnal Signal","outfit":{"title":"After Midnight, Solo","description":"Straight-cut black wool trousers with a sharp crease, tucked with a black silk charmeuse blouse. A long unbelted overcoat, collar turned up. Pointed ankle boots with a low block heel — nothing flashy."},"fragrance":{"title":"Wet asphalt at 2am","notes":"Opens on black pepper, rain-cooled concrete, and cold metal. Heart of dark iris and smoked leather. Base of ambergris, benzoin, and a faint sweetness — city air after the bars close."},"playlist":{"title":"Radio Silence","tracks":["Frank Ocean — Nights","James Blake — Retrograde","Portishead — Sour Times","Nicolas Jaar — Space Is Only Noise If You Can See","Massive Attack — Teardrop"]},"palette":[{"hex":"#0d0d12","name":"absolute black"},{"hex":"#2e1f3e","name":"deep violet"},{"hex":"#e8366b","name":"neon pulse"},{"hex":"#8b7355","name":"worn bronze"}],"caption":"The city is yours when no one else is watching."}</output>
+<output>{"vibeName":"Nocturnal Signal","outfit":{"title":"After Midnight, Solo","description":"Straight-cut black wool trousers with a sharp crease, tucked with a black silk charmeuse blouse. A long unbelted overcoat, collar turned up. Pointed ankle boots with a low block heel — nothing flashy."},"fragrance":{"title":"Wet asphalt at 2am","notes":"Opens on black pepper, rain-cooled concrete, and cold metal. Heart of dark iris and smoked leather. Base of ambergris, benzoin, and a faint sweetness — city air after the bars close."},"playlist":{"title":"Radio Silence","tracks":["Frank Ocean — Nights","James Blake — Retrograde","Portishead — Sour Times","Nicolas Jaar — Space Is Only Noise If You Can See","Massive Attack — Teardrop"]},"palette":[{"hex":"#0d0d12","name":"absolute black"},{"hex":"#2e1f3e","name":"deep violet"},{"hex":"#e8366b","name":"neon pulse"},{"hex":"#8b7355","name":"worn bronze"}],"caption":"The city is yours when no one else is watching.","rationale":{"signal":"A solitary nocturnal state — moving through illuminated urban space with no audience. The energy is self-contained, slightly cinematic, the kind of alone that feels chosen.","outfit":"Black on black with hard silhouette reads as armor against the city without performing it — the overcoat adds the right amount of theatricality for a midnight street.","fragrance":"Wet concrete and black pepper anchor the urban reality; dark iris and leather lift it into something worn, not sprayed — a scent that belongs to 2am specifically.","playlist":"The arc moves from Frank Ocean's late-night propulsion through Nicolas Jaar's spatial disorientation and Massive Attack's emotional gravity — each track deepens the sense of moving alone through a city that's still awake."}}</output>
 </example>
 <example>
 <input>last summer, the end of something good</input>
@@ -74,13 +81,21 @@ Constraints:
 </example>
 </examples>`;
 
+interface AuraRationale {
+  signal:    string;
+  outfit:    string;
+  fragrance: string;
+  playlist:  string;
+}
+
 interface AuraResult {
-  vibeName: string;
-  outfit: { title: string; description: string };
+  vibeName:  string;
+  outfit:    { title: string; description: string };
   fragrance: { title: string; notes: string };
-  playlist: { title: string; tracks: string[] };
-  palette: { hex: string; name: string }[];
-  caption: string;
+  playlist:  { title: string; tracks: string[] };
+  palette:   { hex: string; name: string }[];
+  caption:   string;
+  rationale: AuraRationale | null;
 }
 
 function validateShape(data: unknown): AuraResult {
@@ -134,6 +149,25 @@ function validateShape(data: unknown): AuraResult {
     }
   }
 
+  // Parse rationale leniently — never crash if model omits it
+  let rationale: AuraRationale | null = null;
+  if (d.rationale && typeof d.rationale === 'object') {
+    const r = d.rationale as Record<string, unknown>;
+    if (
+      typeof r.signal === 'string' && r.signal.trim() &&
+      typeof r.outfit === 'string' && r.outfit.trim() &&
+      typeof r.fragrance === 'string' && r.fragrance.trim() &&
+      typeof r.playlist === 'string' && r.playlist.trim()
+    ) {
+      rationale = {
+        signal:    r.signal,
+        outfit:    r.outfit,
+        fragrance: r.fragrance,
+        playlist:  r.playlist,
+      };
+    }
+  }
+
   return {
     vibeName: d.vibeName,
     outfit: {
@@ -153,6 +187,7 @@ function validateShape(data: unknown): AuraResult {
       name: s.name as string,
     })),
     caption: d.caption,
+    rationale,
   };
 }
 
@@ -169,8 +204,8 @@ export async function POST(request: NextRequest) {
     }
 
     const message = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 1200,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1800,
       system: SYSTEM_PROMPT,
       messages: [
         {
