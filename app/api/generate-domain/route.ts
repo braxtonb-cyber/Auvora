@@ -58,7 +58,8 @@ const SCHEMAS: Record<string, string> = {
   "artists": ["artist 1", "artist 2", "artist 3"],
   "bpm": "BPM range (e.g. '72–88 BPM') or descriptor (e.g. 'slow-building')",
   "energy": "one word energy descriptor",
-  "genres": ["genre 1", "genre 2"]
+  "genres": ["genre 1", "genre 2"],
+  "rationale": "1–2 sentences: what emotional or functional state this arc addresses and why this specific combination of artists holds that register — be precise about the listening experience, not just the mood"
 }`,
 }
 
@@ -66,7 +67,7 @@ const SCHEMAS: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
-    const { domain, vibe, profile, stylePrefs } = await req.json()
+    const { domain, vibe, profile, stylePrefs, soundPrefs } = await req.json()
 
     if (!domain || !SYSTEMS[domain]) {
       return NextResponse.json({ error: 'Invalid domain' }, { status: 400 })
@@ -86,7 +87,12 @@ export async function POST(req: Request) {
       ? `\n\nUser's style profile: expression style is ${(stylePrefs.expression as string[])?.join(', ') || 'unspecified'}; aesthetic signature is ${stylePrefs.aesthetic || 'unspecified'}; fit preference is ${stylePrefs.fit || 'unspecified'}; color relationship is ${stylePrefs.color || 'unspecified'}. These are hard constraints — never suggest pieces that contradict their stated fit, expression, or color preferences.`
       : ''
 
-    const userMessage = `User's current energy / occasion: "${vibe.trim()}"${profileContext}${stylePrefsContext}\n\n${SCHEMAS[domain]}`
+    // Enrich sound domain with user's listening preferences
+    const soundPrefsContext = (domain === 'sound' && soundPrefs)
+      ? `\n\nUser's sound profile: primary listening contexts are ${(soundPrefs.contexts as string[])?.join(', ') || 'unspecified'}; sonic signature is ${soundPrefs.sonic || 'unspecified'}; era preference is ${soundPrefs.era || 'unspecified'}. These are hard preferences — don't suggest genres or artists that strongly contradict their stated sonic signature or era.`
+      : ''
+
+    const userMessage = `User's current energy / occasion: "${vibe.trim()}"${profileContext}${stylePrefsContext}${soundPrefsContext}\n\n${SCHEMAS[domain]}`
 
     const message = await anthropic.messages.create({
       model:      'claude-sonnet-4-6',
