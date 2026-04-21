@@ -487,7 +487,7 @@ export default function ProfileTab() {
         lastItem={lastLook}
         count={savedLooks.length}
         countLabel={savedLooks.length === 1 ? 'look saved' : 'looks saved'}
-        emptyText="Build your style profile in the Style tab."
+        emptyText="Define yours in the Style tab."
       />
 
       {/* ── Sound identity ─────────────────────────────────────────────────── */}
@@ -498,7 +498,7 @@ export default function ProfileTab() {
         lastItem={lastPlaylist}
         count={savedPlaylists.length}
         countLabel={savedPlaylists.length === 1 ? 'playlist archived' : 'playlists archived'}
-        emptyText="Build your sound profile in the Sound tab."
+        emptyText="Define yours in the Sound tab."
       />
 
       {/* ── Color language ─────────────────────────────────────────────────── */}
@@ -557,7 +557,7 @@ export default function ProfileTab() {
             fontFamily: T.fontC, fontStyle: 'italic',
             fontSize: 15, color: T.textMuted, paddingTop: 12,
           }}>
-            Your saved auras will appear here.
+            Your aura history will appear here.
           </p>
         ) : (
           <div>

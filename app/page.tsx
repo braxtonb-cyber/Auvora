@@ -639,7 +639,7 @@ export default function AuvoraApp() {
                        (e.currentTarget as HTMLButtonElement).style.color       = 'var(--text-secondary)';
                      }}
                    >
-                     Quick Vibe
+                     Inspire me
                    </button>
 
                    <div style={{ flex: 1 }}>
@@ -842,7 +842,7 @@ export default function AuvoraApp() {
                      textTransform: 'uppercase',
                    }}
                  >
-                   AUVORA — Aura OS &copy; {new Date().getFullYear()}
+                   AUVORA by Brogan Atelier
                  </p>
                </footer>
 

@@ -524,7 +524,7 @@ export default function StyleTab() {
       setResult(data as StyleResult)
       capture('style_generate_completed', { concept: (data as StyleResult).concept })
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong')
+      setError(e instanceof Error ? e.message : 'The signal dropped — try again.')
     } finally {
       setLoading(false)
     }
@@ -713,7 +713,7 @@ export default function StyleTab() {
               outline: 'none', WebkitTapHighlightColor: 'transparent', marginBottom: 20,
             }}
           >
-            {loading ? 'Styling your aura…' : 'Generate look'}
+            {loading ? 'Styling your aura…' : 'Build this look'}
           </button>
         </>
       )}

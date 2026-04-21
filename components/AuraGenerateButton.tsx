@@ -17,7 +17,7 @@ export default function AuraGenerateButton({
     <button
       onClick={onClick}
       disabled={isDisabled}
-      aria-label={isLoading ? 'Composing your aura...' : 'Generate Aura'}
+      aria-label={isLoading ? 'Composing your aura...' : 'Compose aura'}
       style={{
         width: '100%',
         height: 52,
@@ -66,7 +66,7 @@ export default function AuraGenerateButton({
           Composing...
         </>
       ) : (
-        'Generate Aura'
+        'Compose aura'
       )}
     </button>
   );

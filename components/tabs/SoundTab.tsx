@@ -595,7 +595,7 @@ export default function SoundTab() {
         track_count:   sound.tracks?.length ?? 0,
       })
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Something went wrong'
+      const msg = e instanceof Error ? e.message : 'The signal dropped — try again.'
       setError(msg)
       capture('sound_generate_failed', { error: msg })
     } finally {
