@@ -1,0 +1,49 @@
+<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldStroke" x1="128" y1="96" x2="392" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5E5BB"/>
+      <stop offset="0.34" stop-color="#E6C98A"/>
+      <stop offset="0.68" stop-color="#C39A58"/>
+      <stop offset="1" stop-color="#8D6738"/>
+    </linearGradient>
+    <linearGradient id="goldRibbon" x1="112" y1="260" x2="400" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7E9C3"/>
+      <stop offset="0.35" stop-color="#E7C982"/>
+      <stop offset="0.7" stop-color="#C8954B"/>
+      <stop offset="1" stop-color="#8C6435"/>
+    </linearGradient>
+    <radialGradient id="orbGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 252) rotate(90) scale(52)">
+      <stop offset="0" stop-color="#FFC98A" stop-opacity="0.95"/>
+      <stop offset="0.42" stop-color="#E09A48" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#8C4D1B" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="panelGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 248) rotate(90) scale(190)">
+      <stop offset="0" stop-color="#4A236C" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#070509" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softBlur" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="orbBlur" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="24"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="20" width="472" height="472" rx="118" fill="#070509"/>
+  <rect x="20" y="20" width="472" height="472" rx="118" fill="url(#panelGlow)"/>
+
+  <ellipse cx="256" cy="248" rx="118" ry="82" fill="#5A2D7A" fill-opacity="0.12" filter="url(#softBlur)"/>
+  <ellipse cx="256" cy="252" rx="42" ry="42" fill="url(#orbGlow)" filter="url(#orbBlur)"/>
+
+  <g id="mark" transform="translate(0 2)">
+    <path id="leftLeg" d="M164 398L244 108" stroke="url(#goldStroke)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="rightLeg" d="M348 398L268 108" stroke="url(#goldStroke)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="apexBar" d="M228 108H284" stroke="url(#goldStroke)" stroke-width="24" stroke-linecap="round"/>
+
+    <path id="infinityShadow" d="M112 258C148 210 210 210 245 258C281 306 343 306 400 258C343 210 281 210 245 258C210 306 148 306 112 258Z" stroke="#24172B" stroke-width="46" stroke-linecap="round" stroke-linejoin="round" opacity="0.96"/>
+    <path id="infinityRibbon" d="M112 258C148 210 210 210 245 258C281 306 343 306 400 258C343 210 281 210 245 258C210 306 148 306 112 258Z" stroke="url(#goldRibbon)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <circle id="coreOrb" cx="256" cy="252" r="11" fill="#F0C88A"/>
+    <circle id="coreOrbHot" cx="256" cy="252" r="5" fill="#FFF3D8"/>
+  </g>
+</svg>
