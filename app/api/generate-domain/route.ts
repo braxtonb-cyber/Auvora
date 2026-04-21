@@ -39,7 +39,7 @@ const SCHEMAS: Record<string, string> = {
     { "house": "brand name", "name": "fragrance name", "why": "one sentence why it fits" },
     { "house": "brand name", "name": "fragrance name", "why": "one sentence why it fits" }
   ],
-  "ritual": "specific application ritual — where to apply, how much, when",
+  "routine": "specific application routine — where to apply, how much, when",
   "mood": "the mood this scent creates in a room"
 }`,
 

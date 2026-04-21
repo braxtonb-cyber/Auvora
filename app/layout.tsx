@@ -6,6 +6,15 @@ export const metadata: Metadata = {
   description: 'An AI-powered aura operating system. Generate your complete lifestyle vibe.',
   keywords: ['aura', 'lifestyle', 'fashion', 'fragrance', 'vibe'],
   authors: [{ name: 'AUVORA' }],
+  manifest: '/manifest.webmanifest?v=2',
+  icons: {
+    icon: [
+      { url: '/favicon.ico?v=2', sizes: 'any' },
+      { url: '/icon.png?v=2', type: 'image/png' },
+    ],
+    shortcut: ['/favicon.ico?v=2'],
+    apple: [{ url: '/apple-icon.png?v=2', sizes: '180x180', type: 'image/png' }],
+  },
   openGraph: {
     title: 'AUVORA',
     description: 'Your aura, curated.',
@@ -17,7 +26,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#0E0C0B',
+  themeColor: '#070509',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

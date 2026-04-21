@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:scent": "tsx --test tests/scent/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
@@ -25,6 +26,7 @@
     "eslint-config-next": "15.5.15",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.2",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }
