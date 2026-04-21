@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import SettingsView from '@/components/SettingsView'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -307,6 +308,7 @@ export default function ProfileTab() {
   const [savedLooks, setSavedLooks] = useState<SavedLook[]>([])
   const [savedPlaylists, setSavedPlaylists] = useState<SavedPlaylist[]>([])
   const [resetConfirm, setResetConfirm] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     try {
@@ -388,6 +390,10 @@ export default function ProfileTab() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  if (showSettings) {
+    return <SettingsView onBack={() => setShowSettings(false)} />
+  }
+
   return (
     <div style={{
       maxWidth: 440, margin: '0 auto',
@@ -397,12 +403,25 @@ export default function ProfileTab() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ paddingTop: 52, paddingBottom: 28 }}>
-        <p style={{
-          fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.28em',
-          color: T.gold, textTransform: 'uppercase', marginBottom: 12, opacity: 0.7,
-        }}>
-          ○ Profile
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <p style={{
+            fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.28em',
+            color: T.gold, textTransform: 'uppercase', opacity: 0.7,
+          }}>
+            ○ Profile
+          </p>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.1em',
+              color: T.textMuted, background: 'none', border: 'none',
+              cursor: 'pointer', padding: 0, textTransform: 'uppercase',
+              outline: 'none', WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            Settings
+          </button>
+        </div>
         <h1 style={{
           fontFamily: T.fontC, fontWeight: 300,
           fontSize: 32, color: T.textPrimary,
