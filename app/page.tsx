@@ -18,6 +18,7 @@ import StyleTab   from '@/components/tabs/StyleTab';
 import ScentTab   from '@/components/tabs/ScentTab';
 import SoundTab   from '@/components/tabs/SoundTab';
 import ProfileTab from '@/components/tabs/ProfileTab';
+import CheckInCard, { PendingCheckin } from '@/components/CheckInCard';
 
 // ── New fonts (Cormorant + DM Mono) used by splash / onboarding / nav ─────────
 
@@ -271,6 +272,9 @@ export default function AuvoraApp() {
   const [recentEntries,  setRecentEntries]  = useState<RecentEntry[]>([]);
   const [patternInsight, setPatternInsight] = useState<string | null>(null);
 
+  // ── Check-in loop ─────────────────────────────────────────────────────────
+  const [pendingCheckin, setPendingCheckin] = useState<PendingCheckin | null>(null);
+
   // ── Init: splash + onboarding gates ───────────────────────────────────────
   useEffect(() => {
     const splashSeen = sessionStorage.getItem('auvoraSplashSeen');
@@ -282,6 +286,16 @@ export default function AuvoraApp() {
       try { setProfile(JSON.parse(savedProfile)); } catch { /* ignore */ }
       setOnboardingDone(true);
     }
+
+    // Surface pending check-in if >= 30 min since last generation
+    try {
+      const raw = localStorage.getItem('pendingCheckin');
+      if (raw) {
+        const pc = JSON.parse(raw) as PendingCheckin;
+        const minsSince = (Date.now() - new Date(pc.generatedAt).getTime()) / 60000;
+        if (minsSince >= 30) setPendingCheckin(pc);
+      }
+    } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Silent anonymous auth on first visit ──────────────────────────────────
@@ -388,6 +402,16 @@ export default function AuvoraApp() {
       setGenerationCount((c) => c + 1);
 
       void silentSave(trimmed, data.aura);
+
+      // Queue a check-in for the next session (shown after 30 min idle)
+      try {
+        localStorage.setItem('pendingCheckin', JSON.stringify({
+          vibeInput:   trimmed,
+          vibeName:    data.aura.vibeName,
+          generatedAt: new Date().toISOString(),
+        } satisfies PendingCheckin));
+        setPendingCheckin(null); // hide any existing check-in during active session
+      } catch { /* ignore */ }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Generation failed. Please try again.');
       setPhase('error');
@@ -508,6 +532,23 @@ export default function AuvoraApp() {
                <div style={{ animation: 'driftUp 0.7s 0.15s cubic-bezier(0.22,1,0.36,1) both' }}>
                  <AuraOrb colors={orbColors} isActive={phase === 'result'} />
                </div>
+
+               {/* ── Check-in card ── */}
+               {phase === 'idle' && pendingCheckin && (
+                 <div style={{ animation: 'au-fade-up 0.5s 0.1s ease both' }}>
+                   <CheckInCard
+                     checkin={pendingCheckin}
+                     onComplete={() => {
+                       localStorage.removeItem('pendingCheckin');
+                       setPendingCheckin(null);
+                     }}
+                     onSkip={() => {
+                       localStorage.removeItem('pendingCheckin');
+                       setPendingCheckin(null);
+                     }}
+                   />
+                 </div>
+               )}
 
                {/* ── Returning-user chips ── */}
                {phase === 'idle' && recentEntries.length > 0 && (
