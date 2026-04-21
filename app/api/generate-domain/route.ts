@@ -24,7 +24,8 @@ const SCHEMAS: Record<string, string> = {
   "palette": ["#hex1", "#hex2", "#hex3"],
   "occasion": "best occasion this works for",
   "tip": "one sharp, specific styling tip that elevates the whole look",
-  "avoid": "one thing to avoid that would undercut this aura"
+  "avoid": "one thing to avoid that would undercut this aura",
+  "rationale": "1–2 sentences: why this specific look fits this person's energy AND their personal style profile — name what the occasion signals and how the garment choices honor their stated aesthetic and fit preferences"
 }`,
 
   scent: `Respond ONLY with a raw JSON object — no markdown, no explanation:
@@ -65,7 +66,7 @@ const SCHEMAS: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
-    const { domain, vibe, profile } = await req.json()
+    const { domain, vibe, profile, stylePrefs } = await req.json()
 
     if (!domain || !SYSTEMS[domain]) {
       return NextResponse.json({ error: 'Invalid domain' }, { status: 400 })
@@ -80,11 +81,16 @@ export async function POST(req: Request) {
       ? `\n\nUser context: preparing for a ${profile.moment} moment, natural aura direction is ${profile.vibe}, currently focused on ${profile.focus}.`
       : ''
 
-    const userMessage = `User's current energy / occasion: "${vibe.trim()}"${profileContext}\n\n${SCHEMAS[domain]}`
+    // Enrich style domain with user's style preferences
+    const stylePrefsContext = (domain === 'style' && stylePrefs)
+      ? `\n\nUser's style profile: expression style is ${(stylePrefs.expression as string[])?.join(', ') || 'unspecified'}; aesthetic signature is ${stylePrefs.aesthetic || 'unspecified'}; fit preference is ${stylePrefs.fit || 'unspecified'}; color relationship is ${stylePrefs.color || 'unspecified'}. These are hard constraints — never suggest pieces that contradict their stated fit, expression, or color preferences.`
+      : ''
+
+    const userMessage = `User's current energy / occasion: "${vibe.trim()}"${profileContext}${stylePrefsContext}\n\n${SCHEMAS[domain]}`
 
     const message = await anthropic.messages.create({
-      model:      'claude-sonnet-4-20250514',
-      max_tokens: 800,
+      model:      'claude-sonnet-4-6',
+      max_tokens: 900,
       system:     SYSTEMS[domain],
       messages:   [{ role: 'user', content: userMessage }],
     })
