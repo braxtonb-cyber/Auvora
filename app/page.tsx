@@ -231,7 +231,7 @@ export default function AuvoraApp() {
             key={activeTab}
             style={{
               paddingBottom: 80,
-              animation:     'au-tab-switch 0.3s ease',
+              animation:     'au-tab-switch 0.5s linear',
             }}
           >
             {activeTab === 'style'   ? <StyleTab />   :

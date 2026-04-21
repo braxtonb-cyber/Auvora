@@ -9,8 +9,8 @@ export default function AuraOrb({
   isActive = false,
   size = 'lg',
 }: AuraOrbProps) {
-  const c1 = (isActive && colors[0]) ? colors[0] : '#CA8A04';
-  const c2 = (isActive && colors[1]) ? colors[1] : '#7A5002';
+  const c1 = (isActive && colors[0]) ? colors[0] : '#c4a46b';
+  const c2 = (isActive && colors[1]) ? colors[1] : '#8c6b48';
 
   const isCompact = size === 'sm';
   const dim       = isCompact ? 52 : 120;

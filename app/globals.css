@@ -7,8 +7,11 @@
   --text-primary: #F5F0E8;
   --text-secondary: #8C8578;
   --text-disabled: #4A4642;
-  --gold: #CA8A04;
-  --gold-hover: #B87C04;
+  --gold: #c4a46b;
+  --gold-hover: #b8945a;
+  --gold-subtle: rgba(196, 164, 107, 0.08);
+  --gold-border: rgba(196, 164, 107, 0.18);
+  --gold-dim: rgba(196, 164, 107, 0.35);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-interactive: rgba(255, 255, 255, 0.12);
   --radius-lg: 20px;
@@ -41,16 +44,16 @@ body {
 
 ::-webkit-scrollbar { width: 2px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(202, 138, 4, 0.3); border-radius: 1px; }
+::-webkit-scrollbar-thumb { background: rgba(196, 164, 107, 0.25); border-radius: 1px; }
 
 ::selection {
-  background: rgba(202, 138, 4, 0.18);
+  background: rgba(196, 164, 107, 0.15);
   color: var(--text-primary);
 }
 
 /* ========================
    ANIMATIONS
-   fade + slight drift only — no bounce, no blur
+   Spring physics via multi-stop keyframes + cubic-bezier(0.16,1,0.3,1)
    ======================== */
 
 @keyframes fadeIn {
@@ -101,8 +104,15 @@ body {
 textarea:focus-visible,
 button:focus-visible,
 input:focus-visible {
-  outline: 1.5px solid rgba(202, 138, 4, 0.5);
+  outline: 1.5px solid rgba(196, 164, 107, 0.45);
   outline-offset: 2px;
+}
+
+/* Tactile press state — subtle scale + opacity on all interactive elements */
+button:not([disabled]):active {
+  opacity: 0.72;
+  transform: scale(0.96);
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.08s ease !important;
 }
 
 /* Textarea placeholder */
@@ -138,8 +148,10 @@ textarea::placeholder {
 }
 
 @keyframes au-tab-switch {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  0%   { opacity: 0; transform: translateY(18px) scale(0.975); }
+  55%  { opacity: 1; transform: translateY(-3px) scale(1.003); }
+  75%  { transform: translateY(1.5px) scale(0.999); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes au-fab-in {
@@ -155,6 +167,24 @@ textarea::placeholder {
 @keyframes au-fade-up {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes au-spring-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.97); }
+  60%  { opacity: 1; transform: translateY(-3px) scale(1.005); }
+  80%  { transform: translateY(1px) scale(0.999); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes au-waveform {
+  0%, 100% { transform: scaleY(0.25); }
+  50%       { transform: scaleY(1); }
+}
+
+@keyframes au-pop-in {
+  0%   { opacity: 0; transform: scale(0.8); }
+  70%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 @keyframes au-shimmer {

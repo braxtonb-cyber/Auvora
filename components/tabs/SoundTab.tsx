@@ -47,6 +47,41 @@ const SEEDS = [
   'late night introspective, emotional',
 ]
 
+// Bar heights that create a natural waveform shape when animated
+const WAVEFORM_HEIGHTS = [0.35, 0.65, 1, 0.75, 0.5, 0.85, 0.4, 0.9, 0.6, 0.3]
+
+function SoundWaveform({ active, color = T.gold }: { active: boolean; color?: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 3,
+        alignItems: 'center',
+        height: 18,
+      }}
+    >
+      {WAVEFORM_HEIGHTS.map((h, i) => (
+        <div
+          key={i}
+          style={{
+            width: 2,
+            height: '100%',
+            borderRadius: 2,
+            background: color,
+            transformOrigin: 'center',
+            transform: active ? `scaleY(${h})` : 'scaleY(0.15)',
+            animation: active
+              ? `au-waveform ${0.9 + i * 0.08}s ease-in-out ${i * 0.07}s infinite`
+              : 'none',
+            transition: 'transform 0.4s cubic-bezier(0.16,1,0.3,1)',
+            opacity: active ? 0.7 : 0.2,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function TrackRow({ track, index }: { track: Track; index: number }) {
   return (
     <div style={{
@@ -129,16 +164,19 @@ export default function SoundTab() {
     <div style={{
       maxWidth: 440, margin: '0 auto',
       padding: '0 16px 40px',
-      animation: 'au-tab-switch 0.35s ease',
+      animation: 'au-tab-switch 0.5s linear',
     }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ paddingTop: 52, paddingBottom: 24 }}>
-        <p style={{
-          fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.28em',
-          color: T.gold, textTransform: 'uppercase', marginBottom: 10, opacity: 0.7,
-        }}>
-          ♩ Sound
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <p style={{
+            fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.28em',
+            color: T.gold, textTransform: 'uppercase', opacity: 0.7,
+          }}>
+            ♩ Sound
+          </p>
+          <SoundWaveform active={loading} />
+        </div>
         <h1 style={{
           fontFamily: T.fontC, fontWeight: 300, fontSize: 32, color: T.textPrimary,
           letterSpacing: '0.02em', lineHeight: 1.2, marginBottom: 8,
@@ -227,18 +265,25 @@ export default function SoundTab() {
 
       {/* ── Result ─────────────────────────────────────────────────────────── */}
       {result && !loading && (
-        <div style={{ animation: 'au-fade-up 0.5s ease' }}>
+        <div style={{ animation: 'au-spring-in 0.55s linear' }}>
           {/* Playlist header */}
           <div style={{
             background: T.card, border: `0.5px solid ${T.cardBorder}`,
             borderRadius: 16, padding: '20px 18px', marginBottom: 10,
           }}>
-            <p style={{
-              fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.2em',
-              textTransform: 'uppercase', color: T.gold, opacity: 0.6, marginBottom: 6,
+            {/* Energy row with waveform */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 10,
             }}>
-              ♩ {result.energy} · {result.bpm}
-            </p>
+              <p style={{
+                fontFamily: T.fontM, fontSize: 9, letterSpacing: '0.2em',
+                textTransform: 'uppercase', color: T.gold, opacity: 0.6,
+              }}>
+                {result.energy} · {result.bpm}
+              </p>
+              <SoundWaveform active={true} />
+            </div>
             <h2 style={{
               fontFamily: T.fontC, fontWeight: 300, fontSize: 24,
               color: T.textPrimary, letterSpacing: '0.02em', marginBottom: 12,

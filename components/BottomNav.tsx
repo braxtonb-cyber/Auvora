@@ -131,10 +131,15 @@ const T = {
 
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   const [mounted, setMounted] = useState(false)
+  const [pressedTab, setPressedTab] = useState<AuvoraTab | null>(null)
 
   useEffect(() => {
     setTimeout(() => setMounted(true), 100)
   }, [])
+
+  const activeTabIndex = TABS.findIndex(t => t.id === activeTab)
+  // With space-around and 5 tabs, centers land at 10%, 30%, 50%, 70%, 90%
+  const indicatorLeft = `${activeTabIndex * 20 + 10}%`
 
   return (
     <nav
@@ -144,93 +149,97 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
         left: 0,
         right: 0,
         zIndex: 100,
-        background: 'rgba(6,6,6,0.92)',
+        background: 'rgba(6,6,6,0.94)',
         borderTop: `0.5px solid ${T.border}`,
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         opacity: mounted ? 1 : 0,
         transform: mounted ? 'translateY(0)' : 'translateY(12px)',
         transition: 'opacity 0.5s ease 0.3s, transform 0.5s cubic-bezier(0.16,1,0.3,1) 0.3s',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          padding: '10px 8px 12px',
-          maxWidth: 480,
-          margin: '0 auto',
-        }}
-      >
-        {TABS.map(tab => {
-          const isActive = activeTab === tab.id
+      {/* Sliding indicator — rides above the active tab, spring physics */}
+      <div style={{ position: 'relative', maxWidth: 480, margin: '0 auto' }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: indicatorLeft,
+            transform: 'translateX(-50%)',
+            width: 20,
+            height: 2,
+            borderRadius: 1,
+            background: `linear-gradient(90deg, transparent, ${T.gold}, transparent)`,
+            transition: mounted ? 'left 0.45s cubic-bezier(0.16,1,0.3,1)' : 'none',
+            opacity: mounted ? 1 : 0,
+            boxShadow: `0 0 8px ${T.gold}66`,
+          }}
+        />
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                padding: '6px 12px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                outline: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                opacity: 1,
-                transition: 'opacity 0.2s ease',
-                position: 'relative',
-              }}
-            >
-              {/* Active indicator dot */}
-              {isActive && (
+        {/* Tab buttons */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            padding: '10px 8px 12px',
+          }}
+        >
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.id
+            const isPressed = pressedTab === tab.id
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                onPointerDown={() => setPressedTab(tab.id)}
+                onPointerUp={() => setPressedTab(null)}
+                onPointerLeave={() => setPressedTab(null)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '6px 12px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  transition: 'transform 0.12s cubic-bezier(0.16,1,0.3,1), opacity 0.12s ease',
+                  transform: isPressed ? 'scale(0.88)' : 'scale(1)',
+                  opacity: isPressed ? 0.6 : 1,
+                }}
+              >
+                {/* Icon with spring scale on active */}
                 <div
                   style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 3,
-                    height: 3,
-                    borderRadius: '50%',
-                    background: T.gold,
-                    animation: 'au-fade-in 0.3s ease',
+                    transition: 'transform 0.35s cubic-bezier(0.16,1,0.3,1)',
+                    transform: isActive ? 'scale(1.12)' : 'scale(1)',
                   }}
-                />
-              )}
+                >
+                  {tab.icon(isActive)}
+                </div>
 
-              {/* Icon */}
-              <div
-                style={{
-                  transition: 'transform 0.2s cubic-bezier(0.16,1,0.3,1)',
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                }}
-              >
-                {tab.icon(isActive)}
-              </div>
-
-              {/* Label */}
-              <span
-                style={{
-                  fontFamily: T.fontM,
-                  fontSize: 9,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: isActive ? T.gold : T.textSub,
-                  transition: 'color 0.2s ease',
-                }}
-              >
-                {tab.label}
-              </span>
-
-            </button>
-          )
-        })}
+                {/* Label */}
+                <span
+                  style={{
+                    fontFamily: T.fontM,
+                    fontSize: 9,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: isActive ? T.gold : T.textSub,
+                    transition: 'color 0.25s ease',
+                  }}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </nav>
   )

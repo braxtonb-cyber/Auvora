@@ -244,7 +244,7 @@ export default function ProfileTab() {
     <div style={{
       maxWidth: 440, margin: '0 auto',
       padding: '0 16px 40px',
-      animation: 'au-tab-switch 0.35s ease',
+      animation: 'au-tab-switch 0.5s linear',
     }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ paddingTop: 52, paddingBottom: 24 }}>
