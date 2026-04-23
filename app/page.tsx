@@ -1,24 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Cormorant_Garamond, DM_Mono } from 'next/font/google';
 import { createClient } from '@/lib/supabase/client';
 import AuraShell from '@/components/AuraShell';
 import StillPointInput from '@/components/StillPointInput';
 import AuraGenerateButton from '@/components/AuraGenerateButton';
 import AuraOrb from '@/components/AuraOrb';
-import AuraCard from '@/components/AuraCard';
-import PaletteSwatchRow from '@/components/PaletteSwatchRow';
 import AuraArchive from '@/components/AuraArchive';
 import SplashScreen from '@/components/SplashScreen';
 import OnboardingFlow, { AuvoraProfile } from '@/components/OnboardingFlow';
 import BottomNav, { AuvoraTab } from '@/components/BottomNav';
-import AuraAssistant from '@/components/AuraAssistant';
 import StyleTab   from '@/components/tabs/StyleTab';
 import ScentTab   from '@/components/tabs/ScentTab';
 import SoundTab   from '@/components/tabs/SoundTab';
 import ProfileTab from '@/components/tabs/ProfileTab';
 import CheckInCard, { PendingCheckin } from '@/components/CheckInCard';
+import GenerateCeremony from '@/components/aura/GenerateCeremony';
+import AuraRevealScene from '@/components/aura/AuraRevealScene';
 import { capture, identify } from '@/lib/posthog';
 
 // ── New fonts (Cormorant + DM Mono) used by splash / onboarding / nav ─────────
@@ -156,86 +155,6 @@ function RecentVibeChip({
   );
 }
 
-// ── Rationale section — collapsible, why this aura was built ─────────────────
-
-function RationaleSection({ rationale }: { rationale: AuraRationale | null }) {
-  const [open, setOpen] = useState(false);
-  if (!rationale) return null;
-
-  const rows = [
-    { label: 'Signal read',  text: rationale.signal    },
-    { label: 'Outfit logic', text: rationale.outfit    },
-    { label: 'Scent logic',  text: rationale.fragrance },
-    { label: 'Playlist arc', text: rationale.playlist  },
-  ];
-
-  return (
-    <div style={{ marginTop: 20, animation: 'au-fade-up 0.5s 300ms ease both' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display:              'flex',
-          alignItems:           'center',
-          justifyContent:       'space-between',
-          width:                '100%',
-          padding:              '11px 0',
-          background:           'none',
-          border:               'none',
-          borderTop:            '0.5px solid var(--border-subtle)',
-          cursor:               'pointer',
-          outline:              'none',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      >
-        <span style={{
-          fontFamily: 'var(--font-body)', fontSize: '0.58rem', fontWeight: 400,
-          letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-disabled)',
-        }}>
-          Why this aura
-        </span>
-        <span style={{
-          fontFamily: 'var(--font-body)', fontSize: '0.72rem',
-          color: 'var(--text-disabled)',
-          display: 'inline-block',
-          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.28s cubic-bezier(0.16,1,0.3,1)',
-        }}>
-          ↓
-        </span>
-      </button>
-
-      {open && (
-        <div style={{
-          paddingBottom: 8,
-          animation: 'au-spring-in 0.4s linear',
-          display: 'flex', flexDirection: 'column', gap: 18,
-        }}>
-          {rows.map(({ label, text }) => (
-            <div key={label}>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontSize: '0.54rem', fontWeight: 400,
-                letterSpacing: '0.22em', textTransform: 'uppercase',
-                color: 'var(--gold)', opacity: 0.65, marginBottom: 5,
-              }}>
-                {label}
-              </p>
-              <p
-                className="font-display"
-                style={{
-                  fontSize: '0.9rem', fontStyle: 'italic', fontWeight: 300,
-                  color: 'var(--text-secondary)', lineHeight: 1.75,
-                }}
-              >
-                {text}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Seeded vibes ──────────────────────────────────────────────────────────────
 
 const QUICK_VIBES = [
@@ -265,7 +184,6 @@ export default function AuvoraApp() {
   const [phase,           setPhase]           = useState<Phase>('idle');
   const [result,          setResult]          = useState<AuraResult | null>(null);
   const [errorMsg,        setErrorMsg]        = useState('');
-  const [copied,          setCopied]          = useState(false);
   const [savedCount,      setSavedCount]      = useState(0);
   const [generationCount, setGenerationCount] = useState(0);
 
@@ -275,6 +193,10 @@ export default function AuvoraApp() {
 
   // ── Check-in loop ─────────────────────────────────────────────────────────
   const [pendingCheckin, setPendingCheckin] = useState<PendingCheckin | null>(null);
+
+  // ── Generation ID guard — lets the ceremony cancel invalidate in-flight
+  //     fetches so a dismissed generation never pops a reveal scene later.
+  const genIdRef = useRef(0);
 
   // ── Init: splash + onboarding gates ───────────────────────────────────────
   useEffect(() => {
@@ -383,10 +305,11 @@ export default function AuvoraApp() {
 
     if (vibeOverride) setVibe(vibeOverride);
 
+    const genId = ++genIdRef.current;
+
     setPhase('loading');
     setResult(null);
     setErrorMsg('');
-    setCopied(false);
     capture('aura_generate_started', { vibe_length: trimmed.length, has_profile: !!profile, has_recent: recentEntries.length > 0 });
 
     // Enrich vibe with profile context if available
@@ -401,6 +324,7 @@ export default function AuvoraApp() {
         body:    JSON.stringify({ prompt: enrichedVibe }),
       });
       const data = await res.json();
+      if (genIdRef.current !== genId) return; // cancelled
       if (!res.ok) throw new Error(data.error || 'Generation failed.');
 
       setResult(data.aura);
@@ -420,6 +344,7 @@ export default function AuvoraApp() {
         setPendingCheckin(null); // hide any existing check-in during active session
       } catch { /* ignore */ }
     } catch (err) {
+      if (genIdRef.current !== genId) return; // cancelled
       const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.';
       setErrorMsg(msg);
       setPhase('error');
@@ -427,16 +352,17 @@ export default function AuvoraApp() {
     }
   }
 
-  async function handleCopy() {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.caption);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2200);
-      capture('aura_caption_copied');
-    } catch {
-      // clipboard unavailable — silent
-    }
+  function handleCancelCeremony() {
+    // Invalidate in-flight fetch; its handler will see a stale genId and bail.
+    genIdRef.current++;
+    setPhase('idle');
+    capture('aura_generate_cancelled');
+  }
+
+  function handleRefine(refinement: string) {
+    const base = vibe.replace(/\[context:.*?\]/gi, '').trim();
+    const combined = base ? `${base} — ${refinement}` : refinement;
+    void handleGenerate(combined);
   }
 
   // ── Tab handling ──────────────────────────────────────────────────────────
@@ -652,25 +578,6 @@ export default function AuvoraApp() {
                  </div>
                </div>
 
-               {/* ── Skeleton ── */}
-               {phase === 'loading' && (
-                 <div
-                   style={{
-                     marginTop:     36,
-                     display:       'flex',
-                     flexDirection: 'column',
-                     gap:           12,
-                     animation:     'fadeIn 0.35s ease forwards',
-                   }}
-                 >
-                   <div className="skeleton" style={{ height: 48 }} />
-                   <div className="skeleton" style={{ height: 120 }} />
-                   <div className="skeleton" style={{ height: 96 }} />
-                   <div className="skeleton" style={{ height: 140 }} />
-                   <div className="skeleton" style={{ height: 72 }} />
-                 </div>
-               )}
-
                {/* ── Error ── */}
                {phase === 'error' && (
                  <div
@@ -715,109 +622,9 @@ export default function AuvoraApp() {
                  </div>
                )}
 
-               {/* ── Result ── */}
+               {/* ── Reveal ── */}
                {phase === 'result' && result && (
-                 <div style={{ marginTop: 36 }}>
-
-                   {/* Vibe name */}
-                   <div
-                     style={{
-                       textAlign:    'center',
-                       marginBottom: 28,
-                       animation:    'driftUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
-                     }}
-                   >
-                     <p
-                       style={{
-                         fontFamily:    'var(--font-body)',
-                         fontSize:      '0.58rem',
-                         fontWeight:    400,
-                         letterSpacing: '0.22em',
-                         color:         'var(--text-disabled)',
-                         textTransform: 'uppercase',
-                         marginBottom:  10,
-                       }}
-                     >
-                       Your Aura
-                     </p>
-                     <h2
-                       className="font-display"
-                       style={{
-                         fontSize:   'clamp(1.9rem, 7vw, 2.8rem)',
-                         fontStyle:  'italic',
-                         fontWeight: 300,
-                         color:      'var(--text-primary)',
-                         lineHeight: 1.15,
-                       }}
-                     >
-                       {result.vibeName}
-                     </h2>
-                   </div>
-
-                   {/* Palette */}
-                   <div style={{ animation: 'driftUp 0.5s 60ms cubic-bezier(0.22,1,0.36,1) both', marginBottom: 24 }}>
-                     <PaletteSwatchRow palette={result.palette} />
-                   </div>
-
-                   {/* Staggered cards */}
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                     <AuraCard type="outfit"    data={result.outfit}    delay={0}   />
-                     <AuraCard type="fragrance" data={result.fragrance} delay={80}  />
-                     <AuraCard type="playlist"  data={result.playlist}  delay={160} />
-                     <AuraCard type="caption"   data={result.caption}   delay={240} />
-                   </div>
-
-                   {/* Rationale — why this aura was built */}
-                   <RationaleSection rationale={result.rationale ?? null} />
-
-                   {/* Copy caption */}
-                   <div
-                     style={{
-                       display:        'flex',
-                       justifyContent: 'center',
-                       marginTop:      20,
-                       animation:      'driftUp 0.5s 320ms cubic-bezier(0.22,1,0.36,1) both',
-                     }}
-                   >
-                     <button
-                       onClick={handleCopy}
-                       aria-label="Copy caption to clipboard"
-                       style={{
-                         background:    copied ? 'var(--gold-subtle)' : 'transparent',
-                         border:        `1px solid ${copied ? 'var(--gold-dim)' : 'var(--border-subtle)'}`,
-                         borderRadius:  'var(--radius-md)',
-                         padding:       '10px 22px',
-                         color:         copied ? 'var(--gold)' : 'var(--text-secondary)',
-                         fontFamily:    'var(--font-body)',
-                         fontSize:      '0.74rem',
-                         fontWeight:    300,
-                         letterSpacing: '0.07em',
-                         cursor:        'pointer',
-                         display:       'flex',
-                         alignItems:    'center',
-                         gap:           8,
-                         transition:    'all 0.2s ease',
-                       }}
-                     >
-                       {copied ? (
-                         <>
-                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                             <polyline points="20 6 9 17 4 12" />
-                           </svg>
-                           Copied
-                         </>
-                       ) : (
-                         <>
-                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                           </svg>
-                           Copy Caption
-                         </>
-                       )}
-                     </button>
-                   </div>
-                 </div>
+                 <AuraRevealScene aura={result} onRefine={handleRefine} />
                )}
 
                {/* ── Archive ── */}
@@ -853,19 +660,10 @@ export default function AuvoraApp() {
           {/* ── Bottom nav ── */}
           <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
-          {/* ── Assistant FAB ── */}
-          <AuraAssistant
-            currentAura={result ? {
-              vibe,
-              outfit:    result.outfit.description,
-              fragrance: result.fragrance.notes,
-              playlist:  result.playlist.title,
-              caption:   result.caption,
-            } : null}
-            onRefinement={(refinedVibe) => {
-              setVibe(refinedVibe);
-              void handleGenerate(refinedVibe);
-            }}
+          {/* ── Ceremony overlay — full-screen during generation ── */}
+          <GenerateCeremony
+            isOpen={phase === 'loading'}
+            onCancel={handleCancelCeremony}
           />
         </>
       )}
