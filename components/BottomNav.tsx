@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-export type AuvoraTab = 'aura' | 'style' | 'scent' | 'sound' | 'profile'
+export type AuvoraTab = 'aura' | 'style' | 'scent' | 'sound' | 'self'
 
 interface BottomNavProps {
   activeTab: AuvoraTab
@@ -98,22 +98,28 @@ const TABS = [
     ),
   },
   {
-    id: 'profile' as AuvoraTab,
-    label: 'Profile',
+    id: 'self' as AuvoraTab,
+    label: 'Self',
     live: true,
+    // Centripetal glyph: concentric rings converging on a center dot —
+    // echoes the Self section's "satellites converge" motion vector.
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <circle
-          cx="10" cy="7.5" r="2.5"
+          cx="10" cy="10" r="8"
+          fill="none"
+          stroke={active ? 'rgba(196,164,107,0.35)' : 'rgba(255,255,255,0.1)'}
+          strokeWidth="0.5"
+        />
+        <circle
+          cx="10" cy="10" r="5"
           fill="none"
           stroke={active ? '#c4a46b' : 'rgba(255,255,255,0.3)'}
           strokeWidth="1"
         />
-        <path
-          d="M4 17c0-3.31 2.69-6 6-6s6 2.69 6 6"
-          stroke={active ? '#c4a46b' : 'rgba(255,255,255,0.3)'}
-          strokeWidth="1"
-          strokeLinecap="round"
+        <circle
+          cx="10" cy="10" r="1.25"
+          fill={active ? '#c4a46b' : 'rgba(255,255,255,0.35)'}
         />
       </svg>
     ),

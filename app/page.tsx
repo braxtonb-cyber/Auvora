@@ -7,14 +7,13 @@ import AuraShell from '@/components/AuraShell';
 import StillPointInput from '@/components/StillPointInput';
 import AuraGenerateButton from '@/components/AuraGenerateButton';
 import AuraOrb from '@/components/AuraOrb';
-import AuraArchive from '@/components/AuraArchive';
 import SplashScreen from '@/components/SplashScreen';
 import OnboardingFlow, { AuvoraProfile } from '@/components/OnboardingFlow';
 import BottomNav, { AuvoraTab } from '@/components/BottomNav';
-import StyleTab   from '@/components/tabs/StyleTab';
-import ScentTab   from '@/components/tabs/ScentTab';
-import SoundTab   from '@/components/tabs/SoundTab';
-import ProfileTab from '@/components/tabs/ProfileTab';
+import StyleTab from '@/components/tabs/StyleTab';
+import ScentTab from '@/components/tabs/ScentTab';
+import SoundTab from '@/components/tabs/SoundTab';
+import SelfTab  from '@/components/tabs/SelfTab';
 import CheckInCard, { PendingCheckin } from '@/components/CheckInCard';
 import GenerateCeremony from '@/components/aura/GenerateCeremony';
 import AuraRevealScene from '@/components/aura/AuraRevealScene';
@@ -185,7 +184,6 @@ export default function AuvoraApp() {
   const [result,          setResult]          = useState<AuraResult | null>(null);
   const [errorMsg,        setErrorMsg]        = useState('');
   const [savedCount,      setSavedCount]      = useState(0);
-  const [generationCount, setGenerationCount] = useState(0);
 
   // ── Returning-user intelligence ────────────────────────────────────────────
   const [recentEntries,  setRecentEntries]  = useState<RecentEntry[]>([]);
@@ -329,7 +327,6 @@ export default function AuvoraApp() {
 
       setResult(data.aura);
       setPhase('result');
-      setGenerationCount((c) => c + 1);
       capture('aura_generate_completed', { vibe_name: data.aura.vibeName });
 
       void silentSave(trimmed, data.aura);
@@ -369,7 +366,7 @@ export default function AuvoraApp() {
 
   function handleTabChange(tab: AuvoraTab) {
     capture('tab_changed', { tab, from: activeTab });
-    const LIVE_TABS: AuvoraTab[] = ['aura', 'style', 'scent', 'sound', 'profile'];
+    const LIVE_TABS: AuvoraTab[] = ['aura', 'style', 'scent', 'sound', 'self'];
     if (!LIVE_TABS.includes(tab)) {
       setActiveTab(tab);
       setTimeout(() => setActiveTab('aura'), 1200);
@@ -407,10 +404,10 @@ export default function AuvoraApp() {
               animation:     'au-tab-switch 0.5s linear',
             }}
           >
-            {activeTab === 'style'   ? <StyleTab />   :
-             activeTab === 'scent'   ? <ScentTab />   :
-             activeTab === 'sound'   ? <SoundTab />   :
-             activeTab === 'profile' ? <ProfileTab /> :
+            {activeTab === 'style' ? <StyleTab /> :
+             activeTab === 'scent' ? <ScentTab /> :
+             activeTab === 'sound' ? <SoundTab /> :
+             activeTab === 'self'  ? <SelfTab />  :
              /* ── Aura tab (existing generator UI) ── */
              <AuraShell>
 
@@ -627,8 +624,8 @@ export default function AuvoraApp() {
                  <AuraRevealScene aura={result} onRefine={handleRefine} />
                )}
 
-               {/* ── Archive ── */}
-               <AuraArchive refreshKey={savedCount} generationCount={generationCount} />
+               {/* Archive lives in Self — the Aura portal stays a generation
+                   surface, not a history ledger. */}
 
                {/* ── Footer ── */}
                <footer

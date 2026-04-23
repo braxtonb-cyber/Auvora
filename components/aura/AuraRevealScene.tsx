@@ -14,6 +14,16 @@ interface AuraRevealSceneProps {
   aura: AuraOutput;
   /** Called when user submits a refinement. Parent runs the regeneration. */
   onRefine?: (refinement: string) => void;
+  /**
+   * "reveal" (default) plays the full ceremony with character-staggered
+   * vibe name, palette unfurl, and inline refine affordance.
+   *
+   * "replay" strips the ceremony for Self timeline tap-throughs: palette is
+   * static, vibe name is static, delays collapse, caption-copy stays, refine
+   * is hidden. The scene still composes cinematically — it simply does not
+   * re-perform the reveal.
+   */
+  mode?: 'reveal' | 'replay';
 }
 
 /**
@@ -32,11 +42,13 @@ interface AuraRevealSceneProps {
  * intentional: the orb is the through-line across ceremony → reveal, not
  * a decoration inside the reveal.
  */
-export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps) {
+export default function AuraRevealScene({ aura, onRefine, mode = 'reveal' }: AuraRevealSceneProps) {
   const [rationaleOpen, setRationaleOpen] = useState(false);
   const [refineOpen, setRefineOpen] = useState(false);
   const [refinement, setRefinement] = useState('');
   const [copied, setCopied] = useState(false);
+
+  const isReplay = mode === 'replay';
 
   const paletteHex = aura.palette.map((p) => p.hex);
 
@@ -90,24 +102,37 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
     setRefineOpen(false);
   }
 
-  // Chapter stagger timings from ceremony tokens (120ms between chapters)
-  const chapterStaggerMs = ceremonyTokens.phase4.chapterStaggerMs;
-  const chapterBaseDelayMs = 1300; // after vibeName settles
+  // Chapter stagger timings from ceremony tokens (120ms between chapters).
+  // In replay mode the pacing tightens so tapping through the archive feels
+  // like leafing through a book, not rewatching a film.
+  const chapterStaggerMs = isReplay ? 60 : ceremonyTokens.phase4.chapterStaggerMs;
+  const chapterBaseDelayMs = isReplay ? 120 : 1300; // after vibeName settles
+  const captionDelayMs = isReplay ? 180 : 1100;
+  const rationaleDelayMs = isReplay ? 260 : 1900;
+  const affordanceDelayMs = isReplay ? 320 : 2200;
 
   return (
-    <div style={{ marginTop: space['2xl'] }}>
-      {/* ─── Palette band — hero field ─────────────────────────────────── */}
+    <div style={{ marginTop: isReplay ? 0 : space['2xl'] }}>
+      {/* ─── Palette band — hero field (lean in replay) ────────────────── */}
       <PaletteBand
         colors={paletteHex}
-        height={96}
-        bleed={true}
-        animate={true}
-        delayMs={100}
+        height={isReplay ? 54 : 96}
+        bleed={!isReplay}
+        animate={!isReplay}
+        delayMs={isReplay ? 0 : 100}
       />
 
       {/* ─── Vibe name ─────────────────────────────────────────────────── */}
-      <div style={{ marginTop: space['2xl'], marginBottom: space.lg }}>
-        <VibeName name={aura.vibeName} size="display" animate={true} delayMs={400} />
+      <div style={{
+        marginTop: isReplay ? space.xl : space['2xl'],
+        marginBottom: isReplay ? space.sm : space.lg,
+      }}>
+        <VibeName
+          name={aura.vibeName}
+          size={isReplay ? 'title' : 'display'}
+          animate={!isReplay}
+          delayMs={isReplay ? 0 : 400}
+        />
       </div>
 
       {/* ─── Caption ───────────────────────────────────────────────────── */}
@@ -115,7 +140,7 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
         <m.p
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ ...SOFT, delay: 1.1 }}
+          transition={{ ...SOFT, delay: captionDelayMs / 1000 }}
           style={{
             ...type.subhead,
             color: color.textSecondary,
@@ -141,7 +166,7 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
             },
           },
         }}
-        style={{ marginTop: space['4xl'] }}
+        style={{ marginTop: isReplay ? space['2xl'] : space['4xl'] }}
       >
         {chapters.map((ch, i) => (
           ch.title || ch.body
@@ -164,7 +189,7 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
         <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ ...SOFT, delay: 1.9 }}
+          transition={{ ...SOFT, delay: rationaleDelayMs / 1000 }}
           style={{ marginTop: space['3xl'] }}
         >
           <button
@@ -261,10 +286,10 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ ...SOFT, delay: 2.2 }}
+        transition={{ ...SOFT, delay: affordanceDelayMs / 1000 }}
         style={{
-          marginTop: space['5xl'],
-          paddingBottom: space['4xl'],
+          marginTop: isReplay ? space['3xl'] : space['5xl'],
+          paddingBottom: isReplay ? space.xl : space['4xl'],
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -294,6 +319,7 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
         )}
 
         {/* Extend this moment — expands into inline refine textarea */}
+        {!isReplay && (
         <AnimatePresence mode="wait">
           {!refineOpen ? (
             <m.button
@@ -399,6 +425,7 @@ export default function AuraRevealScene({ aura, onRefine }: AuraRevealSceneProps
             </m.div>
           )}
         </AnimatePresence>
+        )}
       </m.div>
     </div>
   );
